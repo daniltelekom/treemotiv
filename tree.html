@@ -2192,24 +2192,21 @@ function showQuiz(show){
 }
 
 function finalizeTreeChoice(treeId){
+  // 1) сохраняем выбор
   state.treeId = treeId;
-  // сразу показываем основную сцену
-  setMainUIVisible(true);
-  try { document.getElementById("scene")?.scrollIntoView({behavior:"smooth", block:"start"}); } catch(e){}
   saveState(state);
 
+  // 2) закрываем тест/результат
   showResult(false);
   showQuiz(false);
 
-  el("scene").style.display = "";
-  document.querySelector(".grid").style.display = "";
-  document.querySelector(".actions").style.display = "";
+  // 3) возвращаем основной UI
+  setMainUIVisible(true);
 
+  // 4) перерисовка и запуск мира
   render(state);
   renderGround(state);
-  log(`${TREES[treeId].icon} ${TREES[treeId].name}. ${TREES[treeId].desc}`);
-
-  startWorld(); // вот это ок
+  startWorld();
 }
 
  function startWorld(){
@@ -2289,18 +2286,18 @@ function bindQuiz(){
 }
 
 function showResult(show){
-  el("result").classList.toggle("active", !!show);
+  const res = el("result");
+  if(res) res.classList.toggle("active", !!show);
 
-  if(show){
-    // показываем результат, скрываем остальное
-    el("quiz").classList.remove("active");
-    el("scene").style.display = "none";
-    document.querySelector(".grid").style.display = "none";
-    document.querySelector(".actions").style.display = "none";
-  }else{
-    // скрываем результат, но НЕ включаем квиз автоматически
-    el("result").classList.remove("active");
-  }
+  // прячем/показываем главный UI (сцена + нижние панели) безопасно
+  setMainUIVisible(!show);
+
+  // если где-то остались старые блоки .grid/.actions — прячем тоже, но без падений
+  const grid = document.querySelector(".grid");
+  if(grid) grid.style.display = show ? "none" : "";
+
+  const actions = document.querySelector(".actions");
+  if(actions) actions.style.display = show ? "none" : "";
 }
 
 function modsBadges(treeId){
@@ -2352,10 +2349,8 @@ function renderResultOptions(treeIds){
   });
 
   grid.querySelectorAll("button[data-pick]").forEach(b => {
-    b.addEventListener("click", () => {
+   b.addEventListener("click", () => {
   finalizeTreeChoice(b.dataset.pick);
-  showResult(false);
-  showQuiz(false);
 });
   });
 }
