@@ -1160,10 +1160,9 @@ const TREES = {
     icon: "🌳",
     img: IMG.oak,
     imgsByLevel: [
-  IMG.seed,  IMG.seed,  IMG.seed,      // 0..2
-  IMG.sprout,IMG.sprout,IMG.sprout,    // 3..5
-  IMG.young, IMG.young, IMG.young,     // 6..8
-  IMG.adult, IMG.adult                 // 9..10
+    "assets/trees/oak/seed_1.png", // Stage 0.1
+      "assets/trees/oak/seed_2.png", // Stage 0.2
+      "assets/trees/oak/seed_3.png"  // Stage 0.3
 ],
     desc: "Стабильный страж. Живучий, но растёт чуть медленнее.",
     mods: { xpMul: 0.90, waterDecayMul: 0.95, pestsMul: 0.85, nightXpMul: 1.00 }
@@ -1637,29 +1636,39 @@ if(swayEl){
 }
 
   // дерево
-  const tree = s.treeId ? (TREES[s.treeId] || null) : null;
-  const img = document.getElementById("treeImg");
+const tree = s.treeId ? (TREES[s.treeId] || null) : null;
+const img = document.getElementById("treeImg");
 
-  if(img){
-    const lvl = s.growthLevel || 0;
+if(img && tree){
+  const lvl = s.growthLevel || 0;
 
-    // источник картинки
-    const arr = tree?.imgsByLevel || null;
-    if(arr && arr.length){
-      const idx = Math.max(0, Math.min(arr.length - 1, lvl));
-      img.src = arr[idx] || (tree?.img || "");
-    }else{
-      img.src = tree?.img || "";
+  // 1) сначала пробуем картинки по стадиям (семечки/росток/и т.д.)
+  const stageArr = tree.imgsByStage || null;
+  if(stageArr && stageArr.length){
+    const stage = s.stage || 0;
+    const idx = Math.max(0, Math.min(stageArr.length - 1, stage));
+    img.src = stageArr[idx];
+
+  } else {
+    // 2) если стадий нет, пробуем картинки по уровням
+    const lvlArr = tree.imgsByLevel || null;
+    if(lvlArr && lvlArr.length){
+      const idx = Math.max(0, Math.min(lvlArr.length - 1, lvl));
+      img.src = lvlArr[idx];
+    } else {
+      // 3) запасной вариант
+      img.src = tree.img || "";
     }
-
-    // визуальный рост: масштаб + "вверх" (ТОЛЬКО на img)
-    const scale = 1 + lvl * 0.055;
-    const lift  = -lvl * 5;
-
-    img.style.transform = `translateY(${lift}px) scale(${scale})`;
-    img.style.transformOrigin = "50% 90%";
-    img.style.transition = "transform 900ms ease";
   }
+
+  // визуальный рост: масштаб + "вверх" (ТОЛЬКО на img)
+  const scale = 1 + lvl * 0.055;
+  const lift  = -lvl * 5;
+
+  img.style.transform = `translateY(${lift}px) scale(${scale})`;
+  img.style.transformOrigin = "50% 90%";
+  img.style.transition = "transform 900ms ease";
+}
 
   // glow
   const glow = document.querySelector(".glow");
