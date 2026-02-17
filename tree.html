@@ -1664,7 +1664,7 @@ if (img) {
   const scale = 1 + lvl * 0.055;
   const lift  = -lvl * 5;
 
-  img.style.transform = translateY(${lift}px) scale(${scale});
+  img.style.transform = `translateY(${lift}px) scale(${scale})`;
   img.style.transformOrigin = "50% 90%";
   img.style.transition = "transform 900ms ease";
 }
