@@ -1,0 +1,2359 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tree Spirit MVP</title>
+  <style>
+    :root{
+      --bg1:#0b1222;
+      --panel:#121c33;
+      --panel2:#0f1730;
+      --text:#e9eefc;
+      --muted:#9fb0d9;
+      --line:rgba(255,255,255,.10);
+      --ok:#49d17d;
+      --warn:#ffcc66;
+      --bad:#ff6b6b;
+      --accent:#7aa2ff;
+    }
+    *{box-sizing:border-box}
+    body{
+  margin:0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color:var(--text);
+  background:
+    radial-gradient(900px 600px at 20% -10%, rgba(122,162,255,.22), transparent 60%),
+    radial-gradient(900px 600px at 90% 10%, rgba(73,209,125,.18), transparent 55%),
+    linear-gradient(180deg, var(--bg1), #070b16);
+  min-height:100vh;
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
+  padding:16px;
+  padding-top:24px;
+}
+    .app{
+      width:min(520px, 100%);
+      background: rgba(18,28,51,.78);
+      border:1px solid var(--line);
+      border-radius:18px;
+      max-height: calc(100vh - 32px); /* важно */
+  overflow:auto;                  /* важно */
+      box-shadow: 0 12px 40px rgba(0,0,0,.35);
+      backdrop-filter: blur(8px);
+    }
+    header{
+      padding:14px 16px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      background: linear-gradient(180deg, rgba(255,255,255,.06), transparent);
+      border-bottom:1px solid var(--line);
+    }
+    header .title{
+      font-weight:800;
+      letter-spacing:.2px;
+    }
+    header .sub{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:2px;
+    }
+    .wrap{ padding:16px; display:flex; flex-direction:column; gap:12px; }
+    .scene{
+      position:relative;
+      height:380px;
+      border-radius:16px;
+      border:1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      overflow:hidden;
+    }
+    /* День/ночь фоном: пока примитив, потом сделаем красиво */
+    .scene.day{
+      background:
+        radial-gradient(900px 420px at 20% -20%, rgba(255,230,150,.30), transparent 65%),
+        radial-gradient(800px 420px at 90% 0%, rgba(122,162,255,.28), transparent 60%),
+        linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+    }
+    .scene.night{
+      background:
+        radial-gradient(900px 520px at 30% -10%, rgba(140,120,255,.22), transparent 65%),
+        radial-gradient(800px 420px at 90% 0%, rgba(73,209,125,.10), transparent 60%),
+        linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+    }
+
+    /* дерево (пока символ, потом заменим на рисованное/картинки) */
+    .tree{
+      position:absolute;
+      left:50%;
+      top:54%;
+      transform: translate(-50%, -50%);
+      font-size: 110px;
+      filter: drop-shadow(0 10px 18px rgba(0,0,0,.35));
+      transition: transform .35s ease;
+      user-select:none;
+    }
+    .tree.pulse{ transform: translate(-50%, -50%) scale(1.05); }
+
+    /* мягкое свечение */
+    .glow{
+      position:absolute;
+      left:50%;
+      top:56%;
+      width:180px;
+      height:180px;
+      transform: translate(-50%, -50%);
+      border-radius:999px;
+      background: radial-gradient(circle, rgba(255,240,180,.18), rgba(140,120,255,.06), transparent 70%);
+      filter: blur(1px);
+      opacity:.85;
+      pointer-events:none;
+    }
+
+    /* панель метрик */
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+      margin-top:12px;
+    }
+    .card{
+      border:1px solid var(--line);
+      background: rgba(15,23,48,.65);
+      border-radius:14px;
+      padding:10px 12px;
+    }
+    .k{ font-size:12px; color:var(--muted); }
+    .v{ margin-top:4px; font-weight:800; font-size:16px; }
+    .bar{
+      height:8px;
+      border-radius:999px;
+      background: rgba(255,255,255,.08);
+      overflow:hidden;
+      margin-top:8px;
+    }
+    .bar > div{
+      height:100%;
+      width:50%;
+      background: var(--accent);
+    }
+
+    /* кнопки */
+    .actions{
+      display:flex;
+      gap:10px;
+      margin-top:12px;
+      flex-wrap:wrap;
+    }
+    button{
+      border:1px solid var(--line);
+      background: rgba(122,162,255,.12);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:12px;
+      font-weight:800;
+      cursor:pointer;
+    }
+    button:active{ transform: translateY(1px); }
+    .btn2{ background: rgba(73,209,125,.12); }
+    .btnDanger{ background: rgba(255,107,107,.10); }
+
+    /* логи */
+    .log{
+      margin-top:12px;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.35;
+      min-height: 16px;
+    }
+
+    /* падающие листья (частицы) */
+    .leaf{
+      position:absolute;
+      top:-20px;
+      font-size:18px;
+      opacity:.9;
+      pointer-events:none;
+      animation: fall linear forwards;
+      filter: drop-shadow(0 6px 10px rgba(0,0,0,.25));
+    }
+    @keyframes fall{
+      to{
+        transform: translate(var(--dx), 320px) rotate(var(--rot));
+        opacity: .1;
+      }
+    }
+    
+    /* ===== Quiz screen ===== */
+.quiz{
+  display:none;
+  border:1px solid var(--line);
+  background: rgba(15,23,48,.55);
+  border-radius:16px;
+  padding:12px;
+  margin-bottom:12px;
+}
+.quiz.active{ display:block; }
+
+.qTitle{
+  font-weight:900;
+  font-size:16px;
+  margin-bottom:6px;
+}
+.qSub{ color:var(--muted); font-size:12px; margin-bottom:10px; }
+
+.qCard{
+  border:1px solid var(--line);
+  background: rgba(18,28,51,.65);
+  border-radius:14px;
+  padding:10px 10px;
+  margin:10px 0;
+}
+.qQuestion{ font-weight:800; margin-bottom:8px; }
+
+.qOptions{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.qOpt{
+  text-align:left;
+  width:100%;
+  background: rgba(122,162,255,.10);
+}
+.qOpt small{ display:block; color:var(--muted); font-weight:600; margin-top:2px; }
+
+.quizFooter{
+  display:flex;
+  gap:10px;
+  margin-top:10px;
+  flex-wrap:wrap;
+}
+.pill{
+  display:inline-block;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background: rgba(255,255,255,.05);
+  color: var(--muted);
+  font-size:12px;
+}
+
+/* ===== Quiz option cards (image buttons) ===== */
+.qOptions{
+  display:grid;
+  grid-template-columns: 1fr;
+  gap:10px;
+}
+.qOpt{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 10px;
+  border-radius:14px;
+  border:1px solid var(--line);
+  background: rgba(122,162,255,.10);
+}
+.qOpt:active{ transform: translateY(1px); }
+.qOpt.selected{
+  outline: 2px solid rgba(255,255,255,.25);
+  background: rgba(122,162,255,.18);
+}
+.qOptImg{
+  width:46px;
+  height:46px;
+  border-radius:12px;
+  border:1px solid var(--line);
+  background: rgba(255,255,255,.06);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  flex:0 0 auto;
+}
+.qOptImg img{ width:100%; height:100%; object-fit:cover; display:block; }
+.qOptText{ text-align:left; }
+.qOptText b{ display:block; font-weight:900; }
+.qOptText small{ display:block; color:var(--muted); font-weight:600; margin-top:2px; }
+
+/* ===== Result screen ===== */
+.result{
+  display:none;
+  border:1px solid var(--line);
+  background: rgba(15,23,48,.55);
+  border-radius:16px;
+  padding:12px;
+  margin-bottom:12px;
+}
+.result.active{ display:block; }
+
+.rTitle{
+  font-weight:900;
+  font-size:16px;
+  margin-bottom:6px;
+}
+.rSub{ color:var(--muted); font-size:12px; margin-bottom:10px; }
+
+.rGrid{
+  display:grid;
+  grid-template-columns: 1fr;
+  gap:10px;
+}
+.rCard{
+  display:flex;
+  gap:12px;
+  border:1px solid var(--line);
+  background: rgba(18,28,51,.65);
+  border-radius:14px;
+  padding:10px;
+}
+.rImg{
+  width:112px;
+  height:112px;
+  border-radius:14px;
+  border:1px solid var(--line);
+  background: rgba(255,255,255,.05);
+  overflow:hidden;
+  flex:0 0 auto;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.rImg img{ width:100%; height:100%; object-fit:cover; display:block; }
+.rBody{ flex:1 1 auto; }
+.rBody .name{ font-weight:950; font-size:16px; }
+.rBody .desc{ color:var(--muted); font-size:12px; line-height:1.35; margin-top:4px; }
+.rBody .mods{ margin-top:8px; display:flex; gap:8px; flex-wrap:wrap; }
+.badge{
+  display:inline-block;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background: rgba(255,255,255,.05);
+  color: var(--text);
+  font-size:12px;
+  font-weight:800;
+}
+
+.rActions{
+  display:flex;
+  gap:10px;
+  margin-top:10px;
+  flex-wrap:wrap;
+}
+
+@keyframes rainFall{
+  from{ transform: translateY(-40px) rotate(10deg); opacity:.0; }
+  10%{ opacity:1; }
+  to{ transform: translateY(380px) rotate(10deg); opacity:0; }
+}
+@keyframes fogPulse{
+  0%,100%{ opacity:.45; }
+  50%{ opacity:.8; }
+}
+@keyframes windSweep{
+  0%,100%{ opacity:.0; transform: translateX(-30%); }
+  40%{ opacity:.35; }
+  60%{ opacity:.35; }
+  100%{ opacity:.0; transform: translateX(30%); }
+}
+
+#dayNightLayer{
+  border-radius:16px;
+  transition: background 1200ms ease, opacity 1200ms ease;
+  opacity: 1;
+}
+
+.firefly{
+  position:absolute;
+  width:6px; height:6px;
+  border-radius:999px;
+  background: rgba(255,255,255,.28);
+  box-shadow: 0 0 14px rgba(255,255,255,.35);
+  animation: fly 4.5s ease-in-out infinite;
+  opacity:.0;
+}
+@keyframes fly{
+  0%{ transform: translate(0,0); opacity:0; }
+  20%{ opacity:.8; }
+  60%{ opacity:.65; }
+  100%{ transform: translate(40px,-30px); opacity:0; }
+}
+
+#heightGauge{
+  position:absolute;
+  left:12px;
+  top:12px;
+
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:8px;
+
+  width:auto;
+  padding:10px 10px 12px;
+  border:1px solid var(--line);
+  background: rgba(0,0,0,.18);
+  border-radius:14px;
+  backdrop-filter: blur(6px);
+  pointer-events:none;
+}
+
+#heightGauge .hgValue{
+  font-weight:900;
+  font-size:16px;
+  line-height:1;
+}
+
+#heightGauge .hgBar{
+  width:10px;
+  height:160px;
+  background: rgba(255,255,255,.08);
+  border-radius:999px;
+  overflow:hidden;
+}
+
+#heightFill{
+  width:100%;
+  height:0%;
+  background: rgba(255,204,102,.55);
+  transition: height 900ms ease;
+}
+
+#heightGauge .hgText{ min-width:86px; }
+#heightGauge .hgLabel{ font-size:12px; color:var(--muted); opacity:.85; }
+
+
+.scene{ transition: background 1200ms ease; }
+
+.scene[data-stage-major="0"]{
+  background:
+    radial-gradient(500px 280px at 50% 25%, rgba(255,255,255,.10), transparent 60%),
+    radial-gradient(900px 500px at 30% 0%, rgba(91,124,255,.16), transparent 65%),
+    rgba(10,15,32,.75);
+}
+.scene[data-stage-major="1"]{
+  background:
+    radial-gradient(520px 320px at 55% 22%, rgba(255,255,255,.12), transparent 60%),
+    radial-gradient(900px 520px at 35% 0%, rgba(79,209,125,.12), transparent 65%),
+    rgba(10,15,32,.75);
+}
+.scene[data-stage-major="2"]{
+  background:
+    radial-gradient(520px 360px at 55% 18%, rgba(255,255,255,.14), transparent 60%),
+    radial-gradient(900px 520px at 35% 0%, rgba(255,204,102,.12), transparent 65%),
+    rgba(10,15,32,.75);
+}
+.scene[data-stage-major="3"]{
+  background:
+    radial-gradient(540px 380px at 55% 14%, rgba(255,255,255,.16), transparent 60%),
+    radial-gradient(900px 520px at 35% 0%, rgba(186,85,255,.12), transparent 65%),
+    rgba(10,15,32,.75);
+}
+
+@keyframes sway{
+  0%{ transform: translateX(0px) rotate(-1deg); }
+  50%{ transform: translateX(2px) rotate(1deg); }
+  100%{ transform: translateX(0px) rotate(-1deg); }
+}
+
+.scene{
+  position: relative;
+  overflow: hidden;
+}
+
+.glow, #weatherLayer, #dayNightLayer, #groundLayer, #decorLayer, #tree{
+  will-change: transform;
+  transition: transform 180ms ease;
+}
+
+#treeSway{
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 95%;
+}
+
+@keyframes swayRot{
+  0%{ transform: rotate(-1deg); }
+  50%{ transform: rotate(1deg); }
+  100%{ transform: rotate(-1deg); }
+}
+
+/* ===== HUD TOP ===== */
+.hudTop{
+  margin-bottom: 10px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.hudRow{
+  display:flex;
+  gap:10px;
+}
+
+.pill{
+  flex:1;
+  border:1px solid var(--line);
+  background: rgba(15,23,48,.55);
+  border-radius:16px;
+  padding:10px;
+  backdrop-filter: blur(8px);
+}
+
+.pillK{
+  font-size:12px;
+  color: var(--muted);
+  opacity:.85;
+  font-weight:800;
+}
+
+.pillV{
+  font-weight:900;
+  font-size:16px;
+  margin-top:2px;
+}
+
+.pillBar{
+  height:10px;
+  border-radius:999px;
+  background: rgba(255,255,255,.08);
+  overflow:hidden;
+  margin-top:8px;
+}
+
+/* маленькие (16-18) */
+.pillSmall{
+  flex:1;
+  border:1px solid var(--line);
+  background: rgba(15,23,48,.45);
+  border-radius:999px;
+  padding:10px 12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  font-weight:900;
+}
+
+/* ===== RIGHT ACTIONS ===== */
+.hudRight{
+  position:absolute;
+  right:12px;
+  bottom:12px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  z-index:5;
+}
+
+.iconBtn{
+  width:52px;
+  height:52px;
+  border-radius:16px;
+  border:1px solid var(--line);
+  background: rgba(15,23,48,.55);
+  display:grid;
+  place-items:center;
+}
+
+/* ===== MEDITATION ORB (10) ===== */
+.meditateOrb{
+  position:absolute;
+  left:50%;
+  top:44%;
+  transform: translate(-50%,-50%);
+  width:56px;
+  height:56px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background: rgba(255,255,255,.10);
+  color: var(--text);
+  font-size:22px;
+  display:grid;
+  place-items:center;
+  backdrop-filter: blur(8px);
+  z-index:4;
+}
+
+#bgLayer{
+  position:absolute;
+  inset:-40px;               /* запас, чтобы при сдвиге не было пустых краёв */
+  background-size: cover;
+  background-position: center;
+  background-repeat:no-repeat;
+  transform: translate3d(0,0,0) scale(1.06);
+  transition: background-image .8s ease, filter .8s ease;
+  will-change: transform;
+  z-index: 0;
+}
+
+/* чтобы всё остальное было поверх фона */
+.scene > *:not(#bgLayer){
+  z-index: 1;
+}
+
+button{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+
+.btnIcon{
+  width:22px;
+  height:22px;
+  object-fit:contain;
+  pointer-events:none;
+}
+
+#btnShop{ background: transparent; }
+    
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <div class="title">🌳 Дух Дерева (MVP)</div>
+      </div>
+      <button class="btnDanger" id="btnReset" type="button">Сброс</button>
+    </header>
+
+    <div class="wrap">
+
+  <!-- QUIZ -->
+  <div class="quiz" id="quiz">
+    <div class="qTitle">🌳 Выбор Духа Дерева</div>
+    <div class="qSub">Ответьте на 4 вопроса, чтобы подобрать дерево.</div>
+
+    <div class="qCard">
+      <div class="qQuestion">1) Где вашему Духу спокойнее?</div>
+      <div class="qOptions">
+        <button class="qOpt" type="button" data-q="q1" data-a="forest">
+          <span class="qOptImg"><img data-img="forest" alt=""></span>
+          <span class="qOptText"><b>В густом лесу</b><small>тень, тишина</small></span>
+        </button>
+
+        <button class="qOpt" type="button" data-q="q1" data-a="meadow">
+          <span class="qOptImg"><img data-img="meadow" alt=""></span>
+          <span class="qOptText"><b>На поляне</b><small>простор, свет</small></span>
+        </button>
+
+        <button class="qOpt" type="button" data-q="q1" data-a="water">
+          <span class="qOptImg"><img data-img="water" alt=""></span>
+          <span class="qOptText"><b>У воды</b><small>движение, глубина</small></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="qCard">
+      <div class="qQuestion">2) Когда всё пошло не по плану, вы…</div>
+      <div class="qOptions">
+        <button class="qOpt" type="button" data-q="q2" data-a="rock">
+          <span class="qOptImg"><img data-img="rock" alt=""></span>
+          <span class="qOptText"><b>Стоите как скала</b><small>упрямство</small></span>
+        </button>
+
+        <button class="qOpt" type="button" data-q="q2" data-a="adapt">
+          <span class="qOptImg"><img data-img="adapt" alt=""></span>
+          <span class="qOptText"><b>Гнётесь, меняетесь, но выживаете</b><small>адаптация</small></span>
+        </button>
+
+        <button class="qOpt" type="button" data-q="q2" data-a="wait">
+          <span class="qOptImg"><img data-img="wait" alt=""></span>
+          <span class="qOptText"><b>Пережидаете и возвращаетесь</b><small>выдержка</small></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="qCard">
+      <div class="qQuestion">3) Ваш главный настрой</div>
+      <div class="qOptions">
+        <button class="qOpt" type="button" data-q="q3" data-a="wise">
+          <span class="qOptImg"><img data-img="wise" alt=""></span>
+          <span class="qOptText"><b>Мудрость и спокойствие</b></span>
+        </button>
+
+        <button class="qOpt" type="button" data-q="q3" data-a="drive">
+          <span class="qOptImg"><img data-img="drive" alt=""></span>
+          <span class="qOptText"><b>Энергия и движение</b></span>
+        </button>
+
+        <button class="qOpt" type="button" data-q="q3" data-a="care">
+          <span class="qOptImg"><img data-img="care" alt=""></span>
+          <span class="qOptText"><b>Нежность и забота</b></span>
+        </button>
+
+        <button class="qOpt" type="button" data-q="q3" data-a="magic">
+          <span class="qOptImg"><img data-img="magic" alt=""></span>
+          <span class="qOptText"><b>Тайна и магия</b></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="qCard">
+      <div class="qQuestion">4) Любимое время года</div>
+      <div class="qOptions">
+        <button class="qOpt" type="button" data-q="q4" data-a="winter">
+          <span class="qOptImg"><img data-img="winter" alt=""></span>
+          <span class="qOptText"><b>Зима</b><small>ясность и тишина</small></span>
+        </button>
+
+        <button class="qOpt" type="button" data-q="q4" data-a="spring">
+          <span class="qOptImg"><img data-img="spring" alt=""></span>
+          <span class="qOptText"><b>Весна</b><small>обновление</small></span>
+        </button>
+
+        <button class="qOpt" type="button" data-q="q4" data-a="summer">
+          <span class="qOptImg"><img data-img="summer" alt=""></span>
+          <span class="qOptText"><b>Лето</b><small>яркость</small></span>
+        </button>
+
+        <button class="qOpt" type="button" data-q="q4" data-a="autumn">
+          <span class="qOptImg"><img data-img="autumn" alt=""></span>
+          <span class="qOptText"><b>Осень</b><small>мягкая глубина</small></span>
+        </button>
+      </div>
+    </div>
+    
+      <div class="quizFooter">
+    <span class="pill" id="quizProgress">0/4</span>
+    <button id="btnQuizReset" type="button" class="btnDanger">Сбросить ответы</button>
+  </div>
+   </div>
+
+  <!-- RESULT -->
+  <div class="result" id="result">
+    <div class="rTitle">🌿 Ваш Дух Дерева</div>
+    <div class="rSub">Посмотрите описание и выберите дерево, которое хочется выращивать.</div>
+
+    <div class="rGrid" id="resultGrid"></div>
+
+    <div class="rActions">
+      <button id="btnResultBack" type="button">← Назад к тесту</button>
+    </div>
+  </div>
+  
+   <!--shop-->
+   <div class="decor" id="decor" style="display:none; border:1px solid var(--line); background: rgba(15,23,48,.55); border-radius:16px; padding:12px; margin-bottom:12px;">
+  <div class="rTitle">🪵 Украшения</div>
+  <div class="rSub">Сделайте место уютнее. Покупка за листья.</div>
+
+  <div class="rGrid" id="decorGrid"></div>
+
+  <div class="rActions">
+    <button id="btnDecorBack" type="button">← Назад</button>
+  </div>
+</div>
+
+ <!-- TOP HUD (1-4 + 16-18) -->
+<div class="hudTop" id="hudTop">
+  <div class="hudRow">
+    <!-- 1 XP -->
+    <div class="pill">
+      <div class="pillK">XP</div>
+      <div class="pillV" id="xpTextMini">—</div>
+      <div class="pillBar"><div id="xpBar"></div></div>
+    </div>
+
+    <!-- 2 HP -->
+    <div class="pill">
+      <div class="pillK">HP</div>
+      <div class="pillV" id="healthText">—</div>
+      <div class="pillBar"><div id="healthBar"></div></div>
+    </div>
+
+    <!-- 3 Bugs -->
+    <div class="pill">
+      <div class="pillK">Bugs</div>
+      <div class="pillV" id="pestsText">—</div>
+      <div class="pillBar"><div id="pestsBar"></div></div>
+    </div>
+
+    <!-- 4 Water -->
+    <div class="pill">
+      <div class="pillK">Water</div>
+      <div class="pillV" id="waterText">—</div>
+      <div class="pillBar"><div id="waterBar"></div></div>
+    </div>
+  </div>
+
+  <div class="hudRow">
+    <!-- 16 Fruits -->
+    <div class="pillSmall">
+      <span class="pillK">🍎</span>
+      <span class="pillV" id="invFruits">0</span>
+    </div>
+
+    <!-- 17 Essence -->
+    <div class="pillSmall">
+      <span class="pillK">✨</span>
+      <span class="pillV" id="invEssence">0</span>
+    </div>
+
+    <!-- 18 Leaves -->
+    <div class="pillSmall">
+      <span class="pillK">🍃</span>
+      <span class="pillV" id="invLeaves">0</span>
+    </div>
+  </div>
+</div>
+ 
+ <!-- MAIN SCENE -->
+    <div class="scene" id="scene">
+        <div id="bgLayer"></div>
+  <div class="glow"></div>
+  <div id="weatherLayer" style="position:absolute; inset:0; pointer-events:none;"></div>
+  <div id="heightGauge">
+  <div id="heightBig" class="hgValue">—</div>
+  <div class="hgBar">
+    <div id="heightFill"></div>
+  </div>
+</div>
+  <div class="tree" id="tree">
+  <div id="treeSway">
+    <img id="treeImg" alt="" style="width:120px;height:120px;object-fit:contain;">
+    <button id="btnMeditate" class="meditateOrb" type="button" title="Meditation">☀️</button>
+  </div>
+</div>
+  <div id="dayNightLayer" style="position:absolute; inset:0; pointer-events:none;"></div>
+
+  <div id="groundLayer" style="position:absolute; left:0; right:0; bottom:0; height:64px; pointer-events:none;"></div>
+
+  <div id="groundCounter" style="position:absolute; left:12px; bottom:10px; padding:6px 10px; border-radius:999px; border:1px solid var(--line); background: rgba(0,0,0,.22); color: var(--text); font-size:12px; font-weight:800; display:none;">
+    🍃 <span id="groundCount">0</span>
+  </div>
+  <div id="decorLayer" style="position:absolute; inset:0; pointer-events:none;"></div>
+  
+  <!-- RIGHT ACTIONS (7-9 + 20) -->
+<div class="hudRight" id="hudRight">
+  <button id="btnClean" type="button">
+  <img src="icons/bugs.png" class="btnIcon" alt="">
+</button>
+  <button id="btnWater" type="button">
+  <img src="icons/water.png" class="btnIcon" alt="">
+</button>
+ <button id="btnCollect" type="button">
+  <img src="icons/leaves.png" class="btnIcon" alt="">
+</button>
+ <button class="iconBtn" id="btnShop" type="button" title="Shop">
+  <img src="icons/shop.png" class="btnIcon" alt="">
+</button>
+</div>
+</div>
+      
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+
+  <script>
+      
+      
+    // =========================
+    // 1) Утилиты
+    // =========================
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    let worldStarted = false;
+    const nowMs = () => Date.now();
+
+    function isNightByLocalTime(){
+      const h = new Date().getHours();
+      return (h >= 20 || h < 7); // ночь 20:00-07:00
+    }
+    
+    function heightMetersByLevel(level){
+  const base = 0.03; // 3 см на старте
+  return +(base * Math.pow(1.65, level)).toFixed(2);
+}
+
+function fmtLeft(ms){
+  if(ms <= 0) return "нет";
+  const m = Math.ceil(ms / 60000);
+  const h = Math.floor(m / 60);
+  const mm = m % 60;
+  if(h <= 0) return `${mm}м`;
+  return `${h}ч ${mm}м`;
+}
+
+function setupParallax(){
+  const scene = document.getElementById("scene");
+  if(!scene) return;
+
+  const glow = scene.querySelector(".glow");
+  const weather = document.getElementById("weatherLayer");
+  const night = document.getElementById("dayNightLayer");
+  const ground = document.getElementById("groundLayer");
+  const decor = document.getElementById("decorLayer");
+  const tree = document.getElementById("tree");
+
+  let tx = 0, ty = 0; // target (-1..1)
+  let x = 0, y = 0;   // current
+  let raf = 0;
+
+  function apply(){
+    raf = 0;
+
+    // сглаживание
+    x += (tx - x) * 0.18;
+    y += (ty - y) * 0.18;
+
+    // слои (у большинства нет базового translate)
+    if(weather) weather.style.transform = `translate(${x*14}px, ${y*14}px)`;
+    if(night)   night.style.transform   = `translate(${x*6}px,  ${y*6}px)`;
+    if(ground)  ground.style.transform  = `translate(${x*4}px,  ${y*2}px)`;
+    if(decor)   decor.style.transform   = `translate(${x*8}px,  ${y*5}px)`;
+
+    // ВАЖНО: glow и tree центрируются через translate(-50%, -50%) — его нельзя терять
+    if(glow) glow.style.transform = `translate(-50%, -50%) translate(${x*10}px, ${y*10}px)`;
+    if(tree) tree.style.transform = `translate(-50%, -50%) translate(${x*3}px,  ${y*2}px)`;
+
+    if(Math.abs(tx-x) > 0.002 || Math.abs(ty-y) > 0.002){
+      raf = requestAnimationFrame(apply);
+    }
+  }
+
+  function setTargetFromEvent(e){
+    const r = scene.getBoundingClientRect();
+    const cx = r.left + r.width/2;
+    const cy = r.top + r.height/2;
+
+    const px = (e.clientX - cx) / (r.width/2);
+    const py = (e.clientY - cy) / (r.height/2);
+
+    tx = Math.max(-1, Math.min(1, px));
+    ty = Math.max(-1, Math.min(1, py));
+
+    if(!raf) raf = requestAnimationFrame(apply);
+  }
+
+  function resetTarget(){
+    tx = 0; ty = 0;
+    if(!raf) raf = requestAnimationFrame(apply);
+  }
+
+  scene.addEventListener("pointermove", setTargetFromEvent);
+
+  // на мобилках “залипает”, если палец отпустили в углу
+  scene.addEventListener("pointerup", resetTarget);
+  scene.addEventListener("pointercancel", resetTarget);
+  scene.addEventListener("pointerleave", resetTarget);
+
+  // чтобы события шли стабильнее
+  try { scene.style.touchAction = "none"; } catch(e){}
+}
+
+function todayKey(){
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,"0");
+  const day = String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+
+function yesterdayKey(){
+  const d = new Date(Date.now() - 86400000);
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,"0");
+  const day = String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+
+    // =========================
+    // 2) Данные (стадии)
+    // =========================
+    const STAGES = [
+       
+      { name:"Семечко", icon:"🌰", xpToNext:120 },
+      { name:"Росток",  icon:"🌱", xpToNext:220 },
+      { name:"Молодое", icon:"🌿", xpToNext:420 },
+      { name:"Дерево",  icon:"🌳", xpToNext:700 },
+    ];
+    
+    function svgData(svg){
+  return "data:image/svg+xml;utf8," + encodeURIComponent(svg.trim());
+}
+
+const simpleIcon = (label) => svgData(`
+  <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128">
+    <rect width="128" height="128" rx="18" fill="#1b2a55"/>
+    <circle cx="64" cy="64" r="34" fill="rgba(255,255,255,.18)"/>
+    <text x="64" y="72" text-anchor="middle" fill="rgba(255,255,255,.65)"
+      font-size="16" font-family="system-ui">${label}</text>
+  </svg>
+`);
+
+// Простой hand-drawn стиль: мягкие градиенты + “чернильная” линия
+const IMG = {
+  forest: svgData(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128">
+      <rect width="128" height="128" rx="18" fill="#1b2a55"/>
+      <circle cx="42" cy="44" r="26" fill="#49d17d" opacity=".22"/>
+      <circle cx="80" cy="52" r="30" fill="#7aa2ff" opacity=".18"/>
+      <path d="M20 96c22-22 36-18 56-8 18 9 26 6 32-2" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="4" stroke-linecap="round"/>
+      <path d="M18 98c24-24 40-20 60-10 18 9 28 6 34-2" fill="none" stroke="rgba(0,0,0,.25)" stroke-width="2" stroke-linecap="round"/>
+      <text x="18" y="32" fill="rgba(255,255,255,.65)" font-size="14" font-family="system-ui">лес</text>
+    </svg>
+  `),
+  meadow: svgData(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128">
+      <rect width="128" height="128" rx="18" fill="#23356b"/>
+      <circle cx="88" cy="34" r="22" fill="#ffcc66" opacity=".35"/>
+      <path d="M10 88c26-10 48-10 68 0 18 9 28 10 40 4" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="4" stroke-linecap="round"/>
+      <path d="M10 92c28-12 52-12 72 0 18 10 28 10 38 4" fill="none" stroke="rgba(0,0,0,.25)" stroke-width="2" stroke-linecap="round"/>
+      <text x="14" y="32" fill="rgba(255,255,255,.65)" font-size="14" font-family="system-ui">поляна</text>
+    </svg>
+  `),
+  water: svgData(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128">
+      <rect width="128" height="128" rx="18" fill="#1b2a55"/>
+      <path d="M14 78c16-10 30-10 46 0 16 10 32 10 54 0" fill="none" stroke="rgba(122,162,255,.55)" stroke-width="6" stroke-linecap="round"/>
+      <path d="M14 88c16-10 30-10 46 0 16 10 32 10 54 0" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="4" stroke-linecap="round"/>
+      <text x="14" y="32" fill="rgba(255,255,255,.65)" font-size="14" font-family="system-ui">вода</text>
+    </svg>
+  `),
+
+  oak: svgData(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256">
+      <defs>
+        <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#7aa2ff" stop-opacity=".15"/>
+          <stop offset="1" stop-color="#49d17d" stop-opacity=".10"/>
+        </linearGradient>
+      </defs>
+      <rect width="256" height="256" rx="28" fill="#121c33"/>
+      <rect x="18" y="18" width="220" height="220" rx="22" fill="url(#g)" opacity=".9"/>
+      <path d="M130 182c0-32 3-44 16-64 8-12 8-24-6-38-18-18-56-8-62 20-4 18 8 34 24 38"
+        fill="none" stroke="rgba(0,0,0,.25)" stroke-width="10" stroke-linecap="round"/>
+      <path d="M128 186c0-36 4-50 18-72 10-16 10-30-8-46-22-20-66-10-74 24-6 24 10 44 28 50"
+        fill="none" stroke="rgba(255,255,255,.35)" stroke-width="8" stroke-linecap="round"/>
+      <circle cx="132" cy="84" r="54" fill="rgba(73,209,125,.22)"/>
+      <circle cx="96" cy="98" r="34" fill="rgba(255,204,102,.14)"/>
+      <circle cx="166" cy="104" r="38" fill="rgba(122,162,255,.16)"/>
+      <text x="22" y="44" fill="rgba(255,255,255,.55)" font-size="18" font-family="system-ui">Дуб</text>
+    </svg>
+  `),
+
+  birch: svgData(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256">
+      <rect width="256" height="256" rx="28" fill="#121c33"/>
+      <circle cx="170" cy="70" r="46" fill="rgba(255,204,102,.16)"/>
+      <circle cx="96" cy="98" r="58" fill="rgba(73,209,125,.18)"/>
+      <path d="M128 210c-6-56 2-92 22-130" fill="none" stroke="rgba(255,255,255,.45)" stroke-width="10" stroke-linecap="round"/>
+      <path d="M126 210c-8-58 0-98 18-134" fill="none" stroke="rgba(0,0,0,.22)" stroke-width="6" stroke-linecap="round"/>
+      <path d="M142 120l10-6M138 144l12-6M134 166l10-6" stroke="rgba(0,0,0,.25)" stroke-width="6" stroke-linecap="round"/>
+      <text x="22" y="44" fill="rgba(255,255,255,.55)" font-size="18" font-family="system-ui">Берёза</text>
+    </svg>
+  `),
+
+  willow: svgData(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256">
+      <rect width="256" height="256" rx="28" fill="#121c33"/>
+      <path d="M60 188c18-18 38-30 72-30 34 0 52 10 68 22" fill="none" stroke="rgba(122,162,255,.35)" stroke-width="10" stroke-linecap="round"/>
+      <circle cx="132" cy="88" r="58" fill="rgba(122,162,255,.18)"/>
+      <path d="M124 210c0-54 2-78 16-110" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="8" stroke-linecap="round"/>
+      <path d="M108 110c8 30 6 56-10 90M156 110c-10 30-8 56 6 90" fill="none" stroke="rgba(73,209,125,.18)" stroke-width="8" stroke-linecap="round"/>
+      <text x="22" y="44" fill="rgba(255,255,255,.55)" font-size="18" font-family="system-ui">Ива</text>
+    </svg>
+  `),
+
+  spruce: svgData(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256">
+      <rect width="256" height="256" rx="28" fill="#121c33"/>
+      <circle cx="190" cy="62" r="42" fill="rgba(140,120,255,.16)"/>
+      <path d="M128 48l54 74H74l54-74Z" fill="rgba(73,209,125,.16)" stroke="rgba(255,255,255,.25)" stroke-width="6" stroke-linejoin="round"/>
+      <path d="M128 94l68 88H60l68-88Z" fill="rgba(73,209,125,.12)" stroke="rgba(255,255,255,.20)" stroke-width="6" stroke-linejoin="round"/>
+      <path d="M128 206v-26" stroke="rgba(255,255,255,.35)" stroke-width="10" stroke-linecap="round"/>
+      <text x="22" y="44" fill="rgba(255,255,255,.55)" font-size="18" font-family="system-ui">Ель</text>
+    </svg>
+  `),
+
+  rowan: svgData(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256">
+      <rect width="256" height="256" rx="28" fill="#121c33"/>
+      <circle cx="120" cy="90" r="58" fill="rgba(73,209,125,.14)"/>
+      <circle cx="170" cy="100" r="40" fill="rgba(255,204,102,.12)"/>
+      <path d="M128 210c0-58 6-92 22-130" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="8" stroke-linecap="round"/>
+      <g fill="rgba(255,107,107,.55)">
+        <circle cx="156" cy="130" r="6"/><circle cx="172" cy="146" r="6"/><circle cx="142" cy="152" r="6"/>
+      </g>
+      <text x="22" y="44" fill="rgba(255,255,255,.55)" font-size="18" font-family="system-ui">Рябина</text>
+    </svg>
+  `),
+
+  palm: svgData(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256">
+      <rect width="256" height="256" rx="28" fill="#121c33"/>
+      <circle cx="190" cy="64" r="42" fill="rgba(255,204,102,.18)"/>
+      <path d="M132 212c-8-56-4-100 20-146" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="8" stroke-linecap="round"/>
+      <path d="M152 70c18 6 34 14 44 26M152 70c-20 6-36 14-48 26M152 70c12-18 22-28 36-34M152 70c-12-18-22-28-36-34"
+        fill="none" stroke="rgba(73,209,125,.18)" stroke-width="8" stroke-linecap="round"/>
+      <text x="22" y="44" fill="rgba(255,255,255,.55)" font-size="18" font-family="system-ui">Пальма</text>
+    </svg>
+  `),
+  rock: svgData(`
+  <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128">
+    <rect width="128" height="128" rx="18" fill="#23356b"/>
+    <circle cx="64" cy="68" r="26" fill="rgba(255,255,255,.18)"/>
+  </svg>
+`),
+
+adapt: svgData(`
+  <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128">
+    <rect width="128" height="128" rx="18" fill="#1b2a55"/>
+    <path d="M20 80c20-20 40-20 60 0" stroke="rgba(73,209,125,.45)" stroke-width="6" fill="none"/>
+  </svg>
+`),
+
+wait: svgData(`
+  <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128">
+    <rect width="128" height="128" rx="18" fill="#121c33"/>
+    <circle cx="90" cy="36" r="14" fill="rgba(140,120,255,.45)"/>
+  </svg>
+`),
+
+seed: svgData(`
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256">
+  <rect width="256" height="256" rx="28" fill="#121c33"/>
+  <circle cx="128" cy="132" r="44" fill="rgba(255,204,102,.18)"/>
+  <path d="M92 156c24 18 48 18 72 0" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="8" stroke-linecap="round"/>
+  <text x="22" y="44" fill="rgba(255,255,255,.55)" font-size="18" font-family="system-ui">Семечко</text>
+</svg>`),
+
+sprout: svgData(`
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256">
+  <rect width="256" height="256" rx="28" fill="#121c33"/>
+  <path d="M128 200v-58" stroke="rgba(255,255,255,.35)" stroke-width="10" stroke-linecap="round"/>
+  <path d="M128 144c-26 0-42-14-50-34 24-2 44 6 50 24M128 144c26 0 42-14 50-34-24-2-44 6-50 24"
+    fill="rgba(73,209,125,.16)" stroke="rgba(255,255,255,.18)" stroke-width="6" stroke-linejoin="round"/>
+  <text x="22" y="44" fill="rgba(255,255,255,.55)" font-size="18" font-family="system-ui">Росток</text>
+</svg>`),
+
+young: svgData(`
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256">
+  <rect width="256" height="256" rx="28" fill="#121c33"/>
+  <circle cx="128" cy="104" r="58" fill="rgba(73,209,125,.16)"/>
+  <path d="M128 210c0-50 2-78 10-110" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="10" stroke-linecap="round"/>
+  <text x="22" y="44" fill="rgba(255,255,255,.55)" font-size="18" font-family="system-ui">Молодое</text>
+</svg>`),
+
+wise:  simpleIcon("мир"),
+drive: simpleIcon("эн"),
+care:  simpleIcon("доб"),
+magic: simpleIcon("маг"),
+winter: simpleIcon("зим"),
+spring: simpleIcon("вес"),
+summer: simpleIcon("лет"),
+autumn: simpleIcon("ос"),
+  
+};
+    
+    // =========================
+// 2.1) Деревья: модификаторы
+// =========================
+// Чем меньше множитель, тем слабее эффект (например pestsMul < 1 = жуки растут медленнее)
+const TREES = {
+  oak: {
+    name: "Дуб",
+    icon: "🌳",
+    img: IMG.oak,
+    imgsByLevel: [
+  IMG.seed,  IMG.seed,  IMG.seed,      // 0..2
+  IMG.sprout,IMG.sprout,IMG.sprout,    // 3..5
+  IMG.young, IMG.young, IMG.young,     // 6..8
+  IMG.adult, IMG.adult                 // 9..10
+],
+    desc: "Стабильный страж. Живучий, но растёт чуть медленнее.",
+    mods: { xpMul: 0.90, waterDecayMul: 0.95, pestsMul: 0.85, nightXpMul: 1.00 }
+  },
+  birch: {
+    name: "Берёза",
+    icon: "🌿",
+    img: IMG.birch,
+    imgsByLevel: [
+  IMG.seed,  IMG.seed,  IMG.seed,      // 0..2
+  IMG.sprout,IMG.sprout,IMG.sprout,    // 3..5
+  IMG.young, IMG.young, IMG.young,     // 6..8
+  IMG.adult, IMG.adult                 // 9..10
+],
+    desc: "Чистота и восстановление. Быстрее приходит в норму, но жуки злее.",
+    mods: { xpMul: 1.00, waterDecayMul: 1.00, pestsMul: 1.10, nightXpMul: 1.00, healthRecoverMul: 1.35 }
+  },
+  willow: {
+    name: "Ива",
+    icon: "🌾",
+    img: IMG.willow,
+    imgsByLevel: [
+  IMG.seed,  IMG.seed,  IMG.seed,      // 0..2
+  IMG.sprout,IMG.sprout,IMG.sprout,    // 3..5
+  IMG.young, IMG.young, IMG.young,     // 6..8
+  IMG.adult, IMG.adult                 // 9..10
+],
+    desc: "Водная магия. Полив мощнее, дружит с дождём (позже).",
+    mods: { xpMul: 1.00, waterDecayMul: 1.05, pestsMul: 1.00, nightXpMul: 1.00, waterActionMul: 1.20 }
+  },
+  spruce: {
+    name: "Ель",
+    icon: "🌲",
+    img: IMG.spruce,
+    imgsByLevel: [
+  IMG.seed,  IMG.seed,  IMG.seed,      // 0..2
+  IMG.sprout,IMG.sprout,IMG.sprout,    // 3..5
+  IMG.young, IMG.young, IMG.young,     // 6..8
+  IMG.adult, IMG.adult                 // 9..10
+],
+    desc: "Ночной страж. Лучше растёт ночью, легче терпит плохие условия.",
+    mods: { xpMul: 0.98, waterDecayMul: 0.95, pestsMul: 0.95, nightXpMul: 1.18 }
+  },
+  rowan: {
+    name: "Рябина",
+    icon: "🍂",
+    img: IMG.rowan,
+    imgsByLevel: [
+  IMG.seed,  IMG.seed,  IMG.seed,      // 0..2
+  IMG.sprout,IMG.sprout,IMG.sprout,    // 3..5
+  IMG.young, IMG.young, IMG.young,     // 6..8
+  IMG.adult, IMG.adult                 // 9..10
+],
+    desc: "Защитница. Чуть слабее жуки и иногда редкие плоды.",
+    mods: { xpMul: 1.00, waterDecayMul: 1.00, pestsMul: 0.90, nightXpMul: 1.00, rareFruitChance: 0.08 }
+  },
+  palm: {
+    name: "Пальма",
+    icon: "🌴",
+    img: IMG.palm,
+    imgsByLevel: [
+  IMG.seed,  IMG.seed,  IMG.seed,      // 0..2
+  IMG.sprout,IMG.sprout,IMG.sprout,    // 3..5
+  IMG.young, IMG.young, IMG.young,     // 6..8
+  IMG.adult, IMG.adult                 // 9..10
+],
+    desc: "Свобода и скорость. Быстрее растёт и даёт плоды, но хрупче к проблемам.",
+    mods: { xpMul: 1.12, waterDecayMul: 1.08, pestsMul: 1.05, nightXpMul: 1.00, healthBadDecayMul: 1.15, fruitMul: 1.20 }
+  }
+};
+
+const DECOR_ITEMS = [
+  { id:"lantern", name:"Фонарь", desc:"Ночью мягко светится.", cost: 25 },
+  { id:"fence", name:"Заборчик", desc:"Уютная граница вашего места.", cost: 35 },
+];
+
+const GROWTH_XP_THRESHOLDS = [
+  0,    // L0
+  30,   // L1
+  80,   // L2
+  160,  // L3
+  280,  // L4
+  450,  // L5
+  700,  // L6
+  1050, // L7
+  1500, // L8
+  2100, // L9
+  3000, // L10
+];
+
+function progressToNextGrowth(xp){
+  const t = GROWTH_XP_THRESHOLDS;
+  const lvl = calcGrowthLevel(xp);
+  const cur = t[lvl] ?? 0;
+  const next = t[Math.min(lvl + 1, t.length - 1)] ?? cur;
+
+  const span = Math.max(1, next - cur);
+  const into = clamp(xp - cur, 0, span);
+  const pct = Math.round((into / span) * 100);
+
+  return { lvl, pct, into, span, next };
+}
+
+function prettyStageText(level){
+  const info = growthInfo(level);
+  const maxMinor = (info.major === 3) ? 2 : 3; // взрослое 2 подступени, остальные 3
+  return `${info.label} • ${info.minor + 1}/${maxMinor}`;
+}
+
+// =========================
+// 2.2) Quiz: система очков
+// =========================
+function emptyScores(){
+  return { oak:0, birch:0, willow:0, spruce:0, rowan:0, palm:0 };
+}
+
+function addScore(scores, keys, n=1){
+  keys.forEach(k => scores[k] = (scores[k]||0) + n);
+}
+
+function pickTreeFromAnswers(ans){
+  // ans = { q1:'forest', q2:'rock', q3:'wise', q4:'winter' }
+  const s = emptyScores();
+
+  // Q1: место
+  if(ans.q1 === "forest") addScore(s, ["oak","spruce"]);
+  if(ans.q1 === "meadow") addScore(s, ["birch","rowan"]);
+  if(ans.q1 === "water")  addScore(s, ["willow","palm"]);
+
+  // Q2: реакция
+  if(ans.q2 === "rock")  addScore(s, ["oak","spruce"]);
+  if(ans.q2 === "adapt") addScore(s, ["willow","birch"]);
+  if(ans.q2 === "wait")  addScore(s, ["spruce","rowan"]);
+
+  // Q3: вайб
+  if(ans.q3 === "wise")  addScore(s, ["oak","spruce"]);
+  if(ans.q3 === "drive") addScore(s, ["palm","birch"]);
+  if(ans.q3 === "care")  addScore(s, ["birch","rowan"]);
+  if(ans.q3 === "magic") addScore(s, ["spruce","willow"]);
+
+  // Q4: сезон
+  if(ans.q4 === "winter") addScore(s, ["spruce","oak"]);
+  if(ans.q4 === "spring") addScore(s, ["birch","willow"]);
+  if(ans.q4 === "summer") addScore(s, ["palm","birch"]);
+  if(ans.q4 === "autumn") addScore(s, ["rowan","willow"]);
+
+  // победитель / ничья
+  const entries = Object.entries(s).sort((a,b)=>b[1]-a[1]);
+  const top = entries[0];
+  const second = entries[1];
+  const best = top[0];
+  const bestScore = top[1];
+
+  const tied = (second && second[1] === bestScore);
+  if(tied){
+    return { winner: null, options: [best, second[0]], scores: s };
+  }
+  return { winner: best, options: [best], scores: s };
+}
+
+    // =========================
+    // 3) State + сохранение
+    // =========================
+    const KEY = "tree_spirit_state_v1";
+
+    function defaultState(){
+  return {
+    groundLeaves: 0,
+    weather: "sun",
+    weatherUntil: 0,
+    growthBuffUntil: 0,
+
+    treeId: null,
+    stage: 0,
+    xp: 0,
+    water: 70,
+    health: 95,
+    pests: 0,
+    lastTick: nowMs(),
+    growthLevel: 0,
+
+    inventory: { leaves: 0, fruits: 0, essence: 0 },
+    decor: { lantern: false, fence: false },
+    daily: {
+  lastMeditateDay: null,  // "YYYY-MM-DD"
+  streak: 0,
+  total: 0
+},
+  };
+}
+
+    function loadState(){
+      try{
+        const raw = localStorage.getItem(KEY);
+        if(!raw) return defaultState();
+        const s = JSON.parse(raw);
+        // мини-валидация на случай мусора
+        if(typeof s !== "object" || s == null) return defaultState();
+        return {
+          ...defaultState(),
+          ...s,
+          inventory: { ...defaultState().inventory, ...(s.inventory||{}) }
+        };
+      }catch{
+        return defaultState();
+      }
+    }
+
+    function saveState(s){
+  // если не передали объект — сохраняем глобальный state
+  const target = s || state;
+  if(!target) return; // на всякий случай
+  localStorage.setItem(KEY, JSON.stringify(target));
+}
+
+    // =========================
+    // 4) Сердце игры: tick (оффлайн прогресс)
+    // =========================
+    function tickTree(s, tNow){
+      const dtMs = Math.max(0, tNow - (s.lastTick || tNow));
+      const dtHours = dtMs / 3600000;
+      const tree = s.treeId ? (TREES[s.treeId] || null) : null;
+      
+const mods = tree?.mods || {};
+const w = s.weather || "sun";
+const weatherXpMul = (w === "sun") ? 1.10 : 1.0;
+const weatherWaterDecayMul = (w === "rain") ? 0.75 : 1.0;
+const weatherPestsMul = (w === "fog") ? 0.75 : 1.0;
+const xpMul = mods.xpMul ?? 1.0;
+const waterDecayMul = mods.waterDecayMul ?? 1.0;
+const pestsMul = mods.pestsMul ?? 1.0;
+const nightXpMul = mods.nightXpMul ?? 1.0;
+const healthRecoverMul = mods.healthRecoverMul ?? 1.0;
+const healthBadDecayMul = mods.healthBadDecayMul ?? 1.0;
+const fruitMul = mods.fruitMul ?? 1.0;
+
+if(mods.rareFruitChance){
+  const chance = mods.rareFruitChance * dtHours; // шанс растёт с временем
+  if(Math.random() < chance){
+    s.inventory.fruits += 1;
+  }
+}
+
+const night = isNightByLocalTime();
+      if(dtHours <= 0.0001){
+        s.lastTick = tNow;
+        return { dtHours: 0, msg: "" };
+      }
+
+      // ---- настройки баланса
+      const waterDecayPerHour = 2.0;     // 48/сутки
+      const pestsGrowthPerHour = 0.6;    // когда плохо
+      const pestsRecoverPerHour = 0.3;   // когда хорошо
+      const healthDecayPerHour = 0.8;    // только при жести
+      const healthRecoverPerHour = 0.2;  // мягкое восстановление
+      const baseXpPerHour = 10;          // рост в идеале
+
+      // 1) вода убывает всегда
+     s.water = clamp(
+  s.water - waterDecayPerHour * waterDecayMul * weatherWaterDecayMul * dtHours,
+  0, 100
+);
+
+      // 2) вредители: растут при плохих условиях
+      const badWater = (s.water < 25 || s.water > 95);
+      if(badWater){
+        s.pests = clamp(
+  s.pests + pestsGrowthPerHour * pestsMul * weatherPestsMul * dtHours,
+  0, 100
+);
+      }else{
+        s.pests = clamp(s.pests - pestsRecoverPerHour * (2 - pestsMul) * dtHours, 0, 100);
+      }
+
+      // 3) здоровье: падает только если реально плохо
+      const veryBad = (s.water < 15 || s.pests > 70);
+      if(veryBad){
+        s.health = clamp(s.health - healthDecayPerHour * healthBadDecayMul * dtHours, 0, 100);
+      }else{
+        s.health = clamp(s.health + healthRecoverPerHour * healthRecoverMul * dtHours, 0, 100);
+      }
+
+      // 4) факторы роста
+      let waterFactor = 1.0;
+      if(s.water >= 40 && s.water <= 80) waterFactor = 1.0;
+      else if((s.water >= 20 && s.water < 40) || (s.water > 80 && s.water <= 95)) waterFactor = 0.6;
+      else waterFactor = 0.2;
+
+      let pestFactor = 1 - (s.pests / 120);
+      pestFactor = clamp(pestFactor, 0.2, 1.0);
+
+      const healthFactor = clamp(s.health / 100, 0, 1);
+
+      // 5) начисляем XP
+      const buffActive = (s.growthBuffUntil || 0) > tNow;
+const buffMul = buffActive ? 1.25 : 1.0;
+
+const xpGain = baseXpPerHour
+  * waterFactor
+  * pestFactor
+  * healthFactor
+  * xpMul
+  * (night ? nightXpMul : 1.0)
+  * buffMul
+  * weatherXpMul
+  * dtHours;
+
+s.xp += xpGain;
+
+  const newLevel = calcGrowthLevel(s.xp);
+if(newLevel > s.growthLevel){
+  s.growthLevel = newLevel;
+  // эффект апа, лог, частицы
+}
+     
+      // 6) награды (простенько)
+      s.inventory.leaves += Math.floor(xpGain / 15);
+
+      // 7) ап стадий (может апнуться несколько раз)
+      let leveledUp = 0;
+      while(s.stage < STAGES.length - 1){
+        const need = STAGES[s.stage].xpToNext;
+        if(s.xp < need) break;
+        s.xp -= need;
+        s.stage += 1;
+        leveledUp += 1;
+
+        // бонусы за ап
+        s.inventory.fruits += Math.round((s.stage + 1) * fruitMul);
+        s.inventory.essence += 1;
+      }
+
+      s.lastTick = tNow;
+
+      let msg = "";
+      if(leveledUp > 0) msg = `🌟 Дерево выросло на ${leveledUp} стад.!`;
+      return { dtHours, msg };
+    }
+
+    // =========================
+    // 5) UI
+    // =========================
+    const el = (id) => document.getElementById(id);
+
+    function stageLabel(s){
+  const lvl = s.growthLevel || 0;
+  const info = growthInfo(lvl); // major/minor/label
+  // major: 0..3, minor: 0..2 (или 0..1 на взрослом)
+  return `${info.label} ${info.major+1}.${info.minor+1} (lvl ${lvl})`;
+}
+
+    function stageIcon(s){
+      const st = STAGES[s.stage] || STAGES[0];
+      return st.icon;
+    }
+
+    function xpProgress(s){
+      const need = (STAGES[s.stage] || STAGES[0]).xpToNext;
+      return clamp(s.xp / need, 0, 1);
+    }
+
+    function setBar(id, value01){
+      el(id).style.width = `${Math.round(clamp(value01,0,1)*100)}%`;
+    }
+
+    function log(msg){
+      el("log").textContent = msg || "";
+    }
+
+    
+    
+    function renderGround(s){
+  const layer = document.getElementById("groundLayer");
+  const counter = document.getElementById("groundCounter");
+  const cntEl = document.getElementById("groundCount");
+  const btn = document.getElementById("btnCollect");
+
+  const n = s.groundLeaves || 0;
+
+  // счётчик
+  if(counter && cntEl){
+    counter.style.display = n > 0 ? "" : "none";
+    cntEl.textContent = String(n);
+  }
+
+  // кнопка сбора
+  if(btn){
+    btn.style.display = "";
+  }
+
+  // "кучка" визуально: максимум 14 листиков, остальное только числом
+  if(layer){
+    layer.innerHTML = "";
+    const show = Math.min(n, 14);
+    for(let i=0;i<show;i++){
+      const d = document.createElement("div");
+      d.textContent = "🍃";
+      d.style.position = "absolute";
+      d.style.left = (8 + Math.random()*84) + "%";
+      d.style.bottom = (2 + Math.random()*18) + "px";
+      d.style.opacity = "0.85";
+      d.style.transform = `rotate(${Math.random()*120-60}deg)`;
+      d.style.filter = "drop-shadow(0 6px 10px rgba(0,0,0,.18))";
+      layer.appendChild(d);
+    }
+  }
+}
+
+function collectLeaves(){
+  const n = state.groundLeaves || 0;
+  if(n <= 0) return;
+
+  state.inventory.leaves = (state.inventory.leaves || 0) + n;
+  state.groundLeaves = 0;
+
+  saveState(state);
+  render(state);
+  renderGround(state);
+  log("Листья собраны.");
+}
+
+   //функция выбора погоды
+   function pickWeather(){
+  const r = Math.random();
+  if(r < 0.35) return "sun";
+  if(r < 0.60) return "rain";
+  if(r < 0.80) return "fog";
+  return "wind";
+}
+
+function ensureWeather(){
+  const t = nowMs();
+  if((state.weatherUntil || 0) > t) return;
+
+  state.weather = pickWeather();
+  const hours = 3 + Math.floor(Math.random()*4); // 3..6 часов
+  state.weatherUntil = t + hours * 3600000;
+
+  saveState(state);
+  render(state);
+}
+
+function render(s){
+  const scene = el("scene");
+  if(scene){
+    const night = isNightByLocalTime();
+
+    // день/ночь классы
+    scene.classList.toggle("night", night);
+    scene.classList.toggle("day", !night);
+
+    // фон
+    const bg = document.getElementById("bgLayer");
+    if(bg){
+      bg.style.backgroundImage = night
+        ? 'url("assets/bg_night.png")'
+        : 'url("assets/bg_day.png")';
+    }
+  }
+    // фон по стадии
+    const info = growthInfo(s.growthLevel || 0);
+    scene.dataset.stageMajor = String(info.major);
+
+    // лёгкий "камера" эффект
+    const lvlCam = s.growthLevel || 0;
+    scene.style.paddingTop = (8 + lvlCam * 1.2) + "px";
+    const swayEl = document.getElementById("treeSway");
+if(swayEl){
+  const w = s.weather || "sun";
+  swayEl.style.animation = (w === "wind") ? "swayRot 3.2s ease-in-out infinite" : "";
+}
+
+  // дерево
+  const tree = s.treeId ? (TREES[s.treeId] || null) : null;
+  const img = document.getElementById("treeImg");
+
+  if(img){
+    const lvl = s.growthLevel || 0;
+
+    // источник картинки
+    const arr = tree?.imgsByLevel || null;
+    if(arr && arr.length){
+      const idx = Math.max(0, Math.min(arr.length - 1, lvl));
+      img.src = arr[idx] || (tree?.img || "");
+    }else{
+      img.src = tree?.img || "";
+    }
+
+    // визуальный рост: масштаб + "вверх" (ТОЛЬКО на img)
+    const scale = 1 + lvl * 0.055;
+    const lift  = -lvl * 5;
+
+    img.style.transform = `translateY(${lift}px) scale(${scale})`;
+    img.style.transformOrigin = "50% 90%";
+    img.style.transition = "transform 900ms ease";
+  }
+
+  // glow
+  const glow = document.querySelector(".glow");
+  if(glow){
+    const lvl = s.growthLevel || 0;
+    glow.style.transform = `translateY(${Math.max(0, lvl * 2)}px) scale(${1 + lvl * 0.02})`;
+    glow.style.transition = "transform 900ms ease";
+  }
+
+  // тексты (тут лучше показывать твою stageLabel как есть)
+  const st = el("stageText");
+  if(st) st.textContent = stageLabel(s);
+
+  const wt = el("waterText");
+  if(wt) wt.textContent = `${Math.round(s.water)}/100`;
+
+  const ht = el("healthText");
+  if(ht) ht.textContent = `${Math.round(s.health)}`;
+
+  const pt = el("pestsText");
+  if(pt) pt.textContent = `${Math.round(s.pests)}`;
+
+  // бары (если setBar у тебя принимает 0..1)
+  if(typeof setBar === "function"){
+    setBar("waterBar",  s.water / 100);
+    setBar("healthBar", s.health / 100);
+    setBar("pestsBar",  1 - (s.pests / 100));
+
+    // XP бар: убедись, что xpProgress возвращает число 0..1.
+    // Если xpProgress возвращает объект/проценты — это ломает.
+    // Самый безопасный временный вариант:
+    // setBar("xpBar", 0);
+    try{
+      const xp = xpProgress(s);   // оставил как у тебя
+      setBar("xpBar", xp);
+    }catch(e){
+      // чтобы не падало вообще
+      setBar("xpBar", 0);
+    }
+  }
+  
+  // верхние мини-счетчики (16-18)
+const lf = document.getElementById("invLeaves");
+if(lf) lf.textContent = String(s.inventory?.leaves ?? 0);
+
+const fr = document.getElementById("invFruits");
+if(fr) fr.textContent = String(s.inventory?.fruits ?? 0);
+
+const es = document.getElementById("invEssence");
+if(es) es.textContent = String(s.inventory?.essence ?? 0);
+
+// XP мини-текст (1)
+const xpMini = document.getElementById("xpTextMini");
+if(xpMini) xpMini.textContent = `${Math.round(s.xp || 0)}`;
+
+  // subtitle: ресурсы + таймер удобрения (ОДИН раз)
+  const sub = el("subtitle");
+  if(sub){
+    const left = (s.growthBuffUntil || 0) - nowMs();
+    const fertText = left > 0 ? ` • 🌿 ${fmtLeft(left)}` : "";
+    sub.textContent =
+      `Листья: ${s.inventory.leaves} • Плоды: ${s.inventory.fruits} • Эссенция: ${s.inventory.essence}${fertText}`;
+  }
+
+  // высота справа в сцене
+  const hb = document.getElementById("heightBig");
+  if(hb){
+    const h = heightMetersByLevel(s.growthLevel || 0);
+    hb.textContent = `${h} м`;
+  }
+
+  const hf = document.getElementById("heightFill");
+  if(hf){
+    const pct = clamp(((s.growthLevel || 0) / 10) * 100, 0, 100);
+    hf.style.height = pct + "%";
+  }
+
+  // слои
+  if(typeof renderWeather === "function") renderWeather();
+  if(typeof renderDayNight === "function") renderDayNight();
+  if(typeof renderDecor === "function") renderDecor();
+}
+
+function renderWeather(){
+  const layer = document.getElementById("weatherLayer");
+  if(!layer) return;
+
+  const w = state.weather || "sun";
+  layer.innerHTML = "";
+
+  if(w === "rain"){
+    for(let i=0;i<28;i++){
+      const d = document.createElement("div");
+      d.style.position="absolute";
+      d.style.left = (Math.random()*100)+"%";
+      d.style.top = (-20 - Math.random()*60)+"px";
+      d.style.width="2px";
+      d.style.height=(18+Math.random()*26)+"px";
+      d.style.background="rgba(255,255,255,.18)";
+      d.style.borderRadius="2px";
+      d.style.transform=`rotate(${8+Math.random()*10}deg)`;
+      d.style.animation = `rainFall ${1.2+Math.random()*1.2}s linear infinite`;
+      layer.appendChild(d);
+    }
+  }
+
+  if(w === "fog"){
+    const fog = document.createElement("div");
+    fog.style.position="absolute";
+    fog.style.inset="0";
+    fog.style.background="rgba(255,255,255,.06)";
+    fog.style.backdropFilter="blur(2px)";
+    fog.style.animation="fogPulse 6s ease-in-out infinite";
+    layer.appendChild(fog);
+  }
+
+  if(w === "wind"){
+    // просто усилим листья визуально через слой подсказки (спавн листьев сделаем в startWorld)
+    const v = document.createElement("div");
+    v.style.position="absolute";
+    v.style.inset="0";
+    v.style.background="linear-gradient(90deg, transparent, rgba(255,255,255,.05), transparent)";
+    v.style.animation="windSweep 4s ease-in-out infinite";
+    layer.appendChild(v);
+  }
+
+  // sun можно не рисовать, он и так уютный
+}
+
+function renderDayNight(){
+  const layer = document.getElementById("dayNightLayer");
+  if(!layer) return;
+
+  const night = isNightByLocalTime();
+  if(night){
+    layer.style.background = "radial-gradient(800px 500px at 30% 20%, rgba(140,120,255,.18), transparent 60%), rgba(0,0,0,.30)";
+  }else{
+    layer.style.background = "radial-gradient(800px 500px at 30% 20%, rgba(255,255,255,.10), transparent 60%), rgba(0,0,0,.00)";
+  }
+}
+
+function showDecor(show){
+  const d = el("decor");
+  if(d) d.style.display = show ? "" : "none";
+  setMainUIVisible(!show);
+}
+
+function renderDecorShop(){
+  const grid = el("decorGrid");
+  grid.innerHTML = "";
+
+  DECOR_ITEMS.forEach(it => {
+    const owned = !!state.decor?.[it.id];
+    const canBuy = (state.inventory.leaves || 0) >= it.cost;
+
+    const card = document.createElement("div");
+    card.className = "rCard";
+    card.innerHTML = `
+      <div class="rImg">${it.id === "lantern" ? "🏮" : "🪵"}</div>
+      <div class="rBody">
+        <div class="name">${it.name}</div>
+        <div class="desc">${it.desc}</div>
+        <div class="mods">
+          <span class="badge">🍃 ${it.cost}</span>
+          ${owned ? `<span class="badge">Куплено</span>` : ``}
+        </div>
+        <div class="rActions" style="margin-top:10px;">
+          ${owned ? `<button type="button" disabled>Уже есть</button>` :
+            `<button type="button" data-buy="${it.id}" ${canBuy ? "" : "disabled"}>Купить</button>`}
+        </div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+
+  grid.querySelectorAll("button[data-buy]").forEach(b => {
+    b.addEventListener("click", () => buyDecor(b.dataset.buy));
+  });
+}
+
+function buyDecor(id){
+  const it = DECOR_ITEMS.find(x => x.id === id);
+  if(!it) return;
+
+  if((state.inventory.leaves || 0) < it.cost) return;
+
+  state.inventory.leaves -= it.cost;
+  state.decor = state.decor || { lantern:false, fence:false };
+  state.decor[id] = true;
+
+  saveState(state);
+  render(state);
+  renderGround(state);
+  renderDecorShop();
+}
+
+function renderDecor(){
+  const layer = el("decorLayer");
+  if(!layer) return;
+  layer.innerHTML = "";
+
+  const night = isNightByLocalTime();
+
+  if(state.decor?.fence){
+    const f = document.createElement("div");
+    f.textContent = "🪵🪵🪵🪵🪵";
+    f.style.position="absolute";
+    f.style.left="14px";
+    f.style.bottom="44px";
+    f.style.opacity=".7";
+    layer.appendChild(f);
+  }
+
+  if(state.decor?.lantern){
+    const l = document.createElement("div");
+    l.textContent = "🏮";
+    l.style.position="absolute";
+    l.style.right="18px";
+    l.style.bottom="72px";
+    l.style.fontSize="26px";
+    layer.appendChild(l);
+
+    if(night){
+      const glow = document.createElement("div");
+      glow.style.position="absolute";
+      glow.style.right="10px";
+      glow.style.bottom="58px";
+      glow.style.width="120px";
+      glow.style.height="120px";
+      glow.style.borderRadius="999px";
+      glow.style.background="radial-gradient(circle, rgba(255,204,102,.22), transparent 60%)";
+      glow.style.filter="blur(1px)";
+      layer.appendChild(glow);
+    }
+  }
+}
+
+function heightMeters(level){
+  // 0.03м -> 0.1 -> 0.3 -> 1 -> 2.5 -> 6 -> 12 -> 18...
+  const base = 0.03;
+  return +(base * Math.pow(1.65, level)).toFixed(2);
+}
+
+    // =========================
+    // 6) Частицы: листья
+    // =========================
+    function spawnLeaf(){
+      const scene = el("scene");
+      const leaf = document.createElement("div");
+      leaf.className = "leaf";
+      leaf.textContent = "🍃";
+
+      const x = Math.random() * 100; // %
+      const dx = (Math.random()*80 - 40).toFixed(0) + "px";
+      const rot = (Math.random()*240 - 120).toFixed(0) + "deg";
+      const dur = (6 + Math.random()*6).toFixed(2) + "s";
+
+      leaf.style.left = x + "%";
+      leaf.style.setProperty("--dx", dx);
+      leaf.style.setProperty("--rot", rot);
+      leaf.style.animationDuration = dur;
+
+      scene.appendChild(leaf);
+      setTimeout(() => {
+  leaf.remove();
+  // лист "упал на землю"
+  state.groundLeaves = (state.groundLeaves || 0) + 1;
+  saveState(state);
+  render(state);
+  renderGround(state);
+}, 14000);
+    }
+
+    // =========================
+    // 7) Игровые действия
+    // =========================
+    let state = loadState();
+
+    function pulseTree(){
+      const t = el("tree");
+      t.classList.add("pulse");
+      setTimeout(() => t.classList.remove("pulse"), 250);
+    }
+
+    function doWater(){
+  const tree = state.treeId ? (TREES[state.treeId] || null) : null;
+  const mods = tree?.mods || {};
+  const waterActionMul = mods.waterActionMul ?? 1.0;
+
+  const add = 25 * waterActionMul;
+  const wasDry = state.water < 20;
+state.water = clamp(state.water + add, 0, 100);
+if(wasDry) state.health = clamp(state.health + 2, 0, 100);
+
+  saveState(state);
+  pulseTree();
+  log(`💧 Полили (+${Math.round(add)} воды). Дерево довольно.`);
+  render(state);
+}
+
+    function doClean(){
+      state.pests = clamp(state.pests - 35, 0, 100);
+      saveState(state);
+      pulseTree();
+      log("🧹 Жуки изгнаны.");
+      render(state);
+    }
+    
+    function doMeditate(){
+  const s = state;
+  s.daily = s.daily || { lastMeditateDay:null, streak:0, total:0 };
+
+  const t = todayKey();
+  if(s.daily.lastMeditateDay === t){
+    log("Сегодня медитация уже была. Дерево довольно.");
+    return;
+  }
+
+  // стрик (мягкий)
+  const y = yesterdayKey();
+  if(s.daily.lastMeditateDay === y) s.daily.streak += 1;
+  else s.daily.streak = 1;
+
+  s.daily.lastMeditateDay = t;
+  s.daily.total += 1;
+
+  // награда (простая, приятная)
+  const bonusLeaves = 8 + Math.min(12, s.daily.streak); // 9..20
+  s.inventory.leaves += bonusLeaves;
+
+  // маленькая эссенция редко
+  if(Math.random() < 0.25) s.inventory.essence += 1;
+
+  // чуть восстанавливаем
+  s.health = clamp(s.health + 6, 0, 100);
+  s.pests = clamp(s.pests - 8, 0, 100);
+
+  saveState(s);
+  render(s);
+
+  log(`🕯 Медитация завершена. +${bonusLeaves} листьев. Стрик: ${s.daily.streak}`);
+}
+    
+    // =========================
+    // 8) Запуск
+    // =========================
+    function boot(){
+  bindQuiz();
+  bindQuizImages();
+  const btnCollect = document.getElementById("btnCollect");
+if(btnCollect) btnCollect.addEventListener("click", collectLeaves);
+
+(function setupBgParallax(){
+  const bg = document.getElementById("bgLayer");
+  const scene = document.getElementById("scene");
+  if(!bg || !scene) return;
+
+  let targetX = 0, targetY = 0;
+  let curX = 0, curY = 0;
+
+  // медленный “дрейф”
+  let driftT = 0;
+
+  function onMove(clientX, clientY){
+    const r = scene.getBoundingClientRect();
+    const nx = ((clientX - (r.left + r.width/2)) / r.width);   // -0.5..0.5
+    const ny = ((clientY - (r.top  + r.height/2)) / r.height); // -0.5..0.5
+    targetX = nx * 16;   // сила параллакса по X
+    targetY = ny * 12;   // сила параллакса по Y
+  }
+
+  // тач
+  scene.addEventListener("touchmove", (e) => {
+    if(!e.touches || !e.touches[0]) return;
+    onMove(e.touches[0].clientX, e.touches[0].clientY);
+  }, {passive:true});
+
+  // мышь (для теста на ПК)
+  scene.addEventListener("mousemove", (e) => {
+    onMove(e.clientX, e.clientY);
+  }, {passive:true});
+
+  function tick(){
+    // сглаживание (чтобы не дёргалось)
+    curX += (targetX - curX) * 0.08;
+    curY += (targetY - curY) * 0.08;
+
+    // дрейф
+    driftT += 0.002;
+    const driftX = Math.sin(driftT) * 6;
+    const driftY = Math.cos(driftT * 0.8) * 4;
+
+    bg.style.transform = `translate3d(${curX + driftX}px, ${curY + driftY}px, 0) scale(1.06)`;
+
+    requestAnimationFrame(tick);
+  }
+  tick();
+})();
+
+  // на всякий случай: показываем основную сцену (потом showQuiz/showResult её скроют)
+  setMainUIVisible(true);
+  showResult(false);
+
+  // если дерево не выбрано, показываем тест и не запускаем “мир”
+  if(!state.treeId){
+    showQuiz(true);
+    render(state); // не обязательно, но пусть UI не пустой
+    renderGround(state);
+    log("Ответь на вопросы, чтобы выбрать Дух Дерева.");
+    return;
+  }
+
+  // 1) пересчитать оффлайн прогресс
+  const res = tickTree(state, nowMs());
+  saveState(state);
+render(state);
+renderGround(state);
+startWorld();
+setupParallax();
+if(res.msg) log(res.msg);
+
+      // кнопки
+      el("btnWater").addEventListener("click", doWater);
+      el("btnClean").addEventListener("click", doClean);
+      document.getElementById("btnFertilize")?.addEventListener("click", doFertilize);
+      document.getElementById("btnMeditate")?.addEventListener("click", doMeditate);
+      document.getElementById("btnShop")?.addEventListener("click", () => {
+  // временно: открываем твой экран украшений
+  renderDecorShop();
+  showDecor(true);
+});
+      
+const back = el("btnDecorBack");
+if(back) back.addEventListener("click", () => {
+  showDecor(false);
+  render(state);
+});
+      el("btnReset").addEventListener("click", () => {
+  state = defaultState();
+  saveState(state);
+  log("🧨 Сбросили прогресс. Дерево переродилось.");
+  showQuiz(true);
+  updateQuizProgress();
+  render(state);
+});
+    }
+    
+  function doFertilize(){
+  const cost = 15; // листья
+  if((state.inventory.leaves || 0) < cost){
+    log("Недостаточно листьев для удобрения.");
+    return;
+  }
+  state.inventory.leaves -= cost;
+  state.growthBuffUntil = nowMs() + 8 * 3600000; // 8 часов
+  saveState(state);
+  render(state);
+  renderGround(state);
+  log("Дерево получило питание. Рост ускорен на несколько часов.");
+}
+
+function spawnFirefly(){
+  if(!isNightByLocalTime()) return;
+
+  const scene = document.getElementById("scene");
+  if(!scene) return;
+
+  const f = document.createElement("div");
+  f.className = "firefly";
+  f.style.left = (10 + Math.random()*80) + "%";
+  f.style.top = (20 + Math.random()*55) + "%";
+  f.style.animationDuration = (3.5 + Math.random()*3.5) + "s";
+  scene.appendChild(f);
+
+  setTimeout(() => f.remove(), 7000);
+}
+
+function calcGrowthLevel(xp){
+  let lvl = 0;
+  for(let i=0;i<GROWTH_XP_THRESHOLDS.length;i++){
+    if(xp >= GROWTH_XP_THRESHOLDS[i]) lvl = i;
+  }
+  return lvl;
+}
+
+function growthInfo(level){
+  if(level <= 2) return { major:0, minor:level, label:"Семечко" };
+  if(level <= 5) return { major:1, minor:level-3, label:"Росток" };
+  if(level <= 8) return { major:2, minor:level-6, label:"Молодое" };
+  return { major:3, minor:level-9, label:"Взрослое" }; // minor 0..1
+}
+    
+    // =========================
+// 9) Quiz logic
+// =========================
+const quizAnswers = { q1:null, q2:null, q3:null, q4:null };
+
+function quizAnsweredCount(){
+  return Object.values(quizAnswers).filter(Boolean).length;
+}
+
+function updateQuizProgress(){
+  el("quizProgress").textContent = `${quizAnsweredCount()}/4`;
+}
+
+function setMainUIVisible(visible){
+  const scene = el("scene");
+  if(scene) scene.style.display = visible ? "" : "none";
+
+  const hudTop = el("hudTop");
+  if(hudTop) hudTop.style.display = visible ? "" : "none";
+
+  const hudRight = el("hudRight");
+  if(hudRight) hudRight.style.display = visible ? "" : "none";
+}
+
+function showQuiz(show){
+  el("quiz")?.classList.toggle("active", !!show);
+  setMainUIVisible(!show);
+  // если скрыли тест, убедимся что сцена реально видима
+  if(!show) setMainUIVisible(true);
+}
+
+function finalizeTreeChoice(treeId){
+  state.treeId = treeId;
+  // сразу показываем основную сцену
+  setMainUIVisible(true);
+  try { document.getElementById("scene")?.scrollIntoView({behavior:"smooth", block:"start"}); } catch(e){}
+  saveState(state);
+
+  showResult(false);
+  showQuiz(false);
+
+  el("scene").style.display = "";
+  document.querySelector(".grid").style.display = "";
+  document.querySelector(".actions").style.display = "";
+
+  render(state);
+  renderGround(state);
+  log(`${TREES[treeId].icon} ${TREES[treeId].name}. ${TREES[treeId].desc}`);
+
+  startWorld(); // вот это ок
+}
+
+ function startWorld(){
+  if(worldStarted) return;
+  worldStarted = true;
+
+  setInterval(() => {
+  const w = state.weather || "sun";
+  const p = (w === "wind") ? 0.55 : 0.35;
+  if(Math.random() < p) spawnLeaf();
+}, 900);
+
+  setInterval(() => {
+    const r = tickTree(state, nowMs());
+    saveState(state);
+    ensureWeather();
+    render(state);
+    renderGround(state);
+    if(r.msg) log(r.msg);
+  }, 10000);
+  
+  setInterval(() => {
+  if(isNightByLocalTime() && Math.random() < 0.35) spawnFirefly();
+}, 1200);
+}
+
+function handleQuizOptionClick(btn){
+  const q = btn.dataset.q;
+  const a = btn.dataset.a;
+  quizAnswers[q] = a;
+
+  // подсветка выбора: все кнопки вопроса сбросить, выбранную выделить
+  document.querySelectorAll(`button[data-q="${q}"]`).forEach(b => b.classList.remove("selected"));
+btn.classList.add("selected");
+
+  updateQuizProgress();
+
+  if(quizAnsweredCount() === 4){
+    const res = pickTreeFromAnswers(quizAnswers);
+
+    if(res.winner){
+  renderResultOptions([res.winner]);
+  showResult(true);
+}else{
+  renderResultOptions(res.options);
+  showResult(true);
+}
+  }
+}
+
+function bindQuiz(){
+  document.querySelectorAll(".qOpt").forEach(btn => {
+    btn.addEventListener("click", () => handleQuizOptionClick(btn));
+  });
+
+  el("btnQuizReset").addEventListener("click", () => {
+    quizAnswers.q1 = quizAnswers.q2 = quizAnswers.q3 = quizAnswers.q4 = null;
+    document.querySelectorAll(".qOpt").forEach(b => {
+      b.classList.remove("selected");
+    });
+    updateQuizProgress();
+    log("Ответы сброшены.");
+  });
+
+  el("btnResultBack").addEventListener("click", () => {
+    showResult(false);
+  });
+
+  updateQuizProgress();
+}
+    
+    function bindQuizImages(){
+  document.querySelectorAll('img[data-img]').forEach(img => {
+    const key = img.dataset.img;
+    img.src = IMG[key] || "";
+  });
+}
+
+function showResult(show){
+  el("result").classList.toggle("active", !!show);
+
+  if(show){
+    // показываем результат, скрываем остальное
+    el("quiz").classList.remove("active");
+    el("scene").style.display = "none";
+    document.querySelector(".grid").style.display = "none";
+    document.querySelector(".actions").style.display = "none";
+  }else{
+    // скрываем результат, но НЕ включаем квиз автоматически
+    el("result").classList.remove("active");
+  }
+}
+
+function modsBadges(treeId){
+  const t = TREES[treeId];
+  const m = t.mods || {};
+  const badges = [];
+
+  const xp = Math.round((m.xpMul ?? 1) * 100);
+  badges.push(`Рост: ${xp}%`);
+
+  const wd = Math.round((m.waterDecayMul ?? 1) * 100);
+  badges.push(`Расход воды: ${wd}%`);
+
+  const pm = Math.round((m.pestsMul ?? 1) * 100);
+  badges.push(`Жуки: ${pm}%`);
+
+  const nx = Math.round((m.nightXpMul ?? 1) * 100);
+  if(nx !== 100) badges.push(`Ночь: ${nx}%`);
+
+  return badges;
+}
+
+function renderResultOptions(treeIds){
+  const grid = el("resultGrid");
+  grid.innerHTML = "";
+
+  treeIds.forEach(treeId => {
+    const t = TREES[treeId];
+    const card = document.createElement("div");
+    card.className = "rCard";
+
+    const badges = modsBadges(treeId)
+      .map(x => `<span class="badge">${x}</span>`)
+      .join("");
+
+    card.innerHTML = `
+      <div class="rImg"><img src="${t.img}" alt=""></div>
+      <div class="rBody">
+        <div class="name">${t.icon} ${t.name}</div>
+        <div class="desc">${t.desc}</div>
+        <div class="mods">${badges}</div>
+        <div class="rActions" style="margin-top:10px;">
+          <button type="button" data-pick="${treeId}">Выбрать</button>
+        </div>
+      </div>
+    `;
+
+    grid.appendChild(card);
+  });
+
+  grid.querySelectorAll("button[data-pick]").forEach(b => {
+    b.addEventListener("click", () => {
+  finalizeTreeChoice(b.dataset.pick);
+  showResult(false);
+  showQuiz(false);
+});
+  });
+}
+    
+
+    boot();
+  </script>
+</body>
+</html>
