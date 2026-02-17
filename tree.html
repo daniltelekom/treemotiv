@@ -609,6 +609,176 @@ button{
 }
 
 #btnShop{ background: transparent; }
+
+/* Quote modal */
+.quoteModal{
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0,0,0,.45);
+  z-index: 9999;
+  padding: 16px;
+}
+.quoteModal.hidden{ display:none; }
+
+.quoteBox{
+  width: min(520px, 100%);
+  border-radius: 18px;
+  padding: 16px 16px 14px;
+  background: rgba(15,20,40,.92);
+  border: 1px solid rgba(255,255,255,.10);
+  box-shadow: 0 14px 45px rgba(0,0,0,.40);
+}
+
+.quoteTitle{
+  font-weight: 800;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.quoteText{
+  font-size: 14px;
+  line-height: 1.45;
+  opacity: .95;
+  white-space: pre-wrap;
+}
+
+.quoteBtn{
+  margin-top: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(122,162,255,.16);
+  color: #fff;
+  font-weight: 700;
+}
+
+.weatherBar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:10px 12px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.10);
+  background: rgba(15,20,40,.55);
+  margin: 10px 0;
+}
+
+.weatherBtn{
+  padding:6px 10px;
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,.14);
+  background: rgba(122,162,255,.16);
+  color:#fff;
+  font-weight:700;
+}
+
+/* ============================
+   Weather FX overlay
+   ============================ */
+
+.weatherFX{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  overflow:hidden;
+  border-radius: inherit;
+  z-index: 20; /* если перекрывает UI, уменьши; если не видно - увеличь */
+}
+
+.weatherFX .fx{
+  position:absolute;
+  inset:0;
+  opacity:0;
+  transition: opacity 400ms ease;
+}
+
+/* включатели */
+.weatherFX.weather-rain .fx-rain{ opacity:1; }
+.weatherFX.weather-snow .fx-snow{ opacity:1; }
+.weatherFX.weather-sun  .fx-sun { opacity:1; }
+
+/* ---------- RAIN ---------- */
+.fx-rain::before,
+.fx-rain::after{
+  content:"";
+  position:absolute;
+  inset:-40% -20%;
+  background-image: repeating-linear-gradient(
+    115deg,
+    rgba(255,255,255,.22) 0px,
+    rgba(255,255,255,.22) 1px,
+    rgba(255,255,255,0) 2px,
+    rgba(255,255,255,0) 12px
+  );
+  filter: blur(.2px);
+  transform: translateY(-30%);
+  animation: rainFall 900ms linear infinite;
+}
+
+.fx-rain::after{
+  opacity:.6;
+  filter: blur(.6px);
+  animation-duration: 1200ms;
+  transform: translateY(-40%);
+}
+
+@keyframes rainFall{
+  to{ transform: translateY(30%); }
+}
+
+/* ---------- SNOW ---------- */
+.fx-snow::before{
+  content:"";
+  position:absolute;
+  inset:-10% 0;
+  background:
+    radial-gradient(circle, rgba(255,255,255,.9) 0 2px, rgba(255,255,255,0) 3px) 0 0 / 120px 120px,
+    radial-gradient(circle, rgba(255,255,255,.8) 0 1.5px, rgba(255,255,255,0) 3px) 30px 40px / 160px 160px,
+    radial-gradient(circle, rgba(255,255,255,.7) 0 1.2px, rgba(255,255,255,0) 3px) 60px 20px / 200px 200px;
+  animation: snowFall 6s linear infinite;
+  opacity:.9;
+}
+
+@keyframes snowFall{
+  from{ transform: translateY(-15%); }
+  to  { transform: translateY(15%); }
+}
+
+/* ---------- SUN ---------- */
+.fx-sun::before{
+  content:"";
+  position:absolute;
+  width: 260px;
+  height: 260px;
+  right: -80px;
+  top: -90px;
+  background: radial-gradient(circle at 40% 40%,
+    rgba(255,245,200,.75),
+    rgba(255,210,120,.25) 45%,
+    rgba(255,210,120,0) 70%
+  );
+  filter: blur(.2px);
+}
+
+.fx-sun::after{
+  content:"";
+  position:absolute;
+  inset:-20%;
+  background: radial-gradient(circle at 80% 10%,
+    rgba(255,220,140,.14),
+    rgba(255,220,140,0) 55%
+  );
+  animation: sunPulse 2.8s ease-in-out infinite;
+}
+
+@keyframes sunPulse{
+  0%,100%{ transform: scale(1); opacity:.9; }
+  50%    { transform: scale(1.03); opacity:1; }
+}
     
   </style>
 </head>
@@ -799,6 +969,12 @@ button{
       <span class="pillK">🍃</span>
       <span class="pillV" id="invLeaves">0</span>
     </div>
+
+    <div id="weatherBar" class="weatherBar">
+  <span id="weatherText">Погода: …</span>
+  <button id="weatherRefresh" class="weatherBtn" type="button">↻</button>
+</div>
+
   </div>
 </div>
  
@@ -812,6 +988,11 @@ button{
   <div class="hgBar">
     <div id="heightFill"></div>
   </div>
+</div>
+<div id="weatherFX" class="weatherFX weather-none">
+  <div class="fx fx-rain"></div>
+  <div class="fx fx-snow"></div>
+  <div class="fx fx-sun"></div>
 </div>
   <div class="tree" id="tree">
   <div id="treeSway">
@@ -849,12 +1030,57 @@ button{
     </div>
   </div>
 
+  <!-- Motivational Quote Popup -->
+<div id="quoteModal" class="quoteModal hidden" role="dialog" aria-modal="true">
+  <div class="quoteBox">
+    <div class="quoteTitle" id="quoteTitle">Цитата</div>
+    <div class="quoteText" id="quoteText"></div>
+    <button class="quoteBtn" id="quoteBtn" type="button">Ок</button>
+  </div>
+</div>
+
   <script>
       
       
     // =========================
     // 1) Утилиты
     // =========================
+
+    let mainButtonsBound = false;
+
+function bindMainButtons(){
+  if(mainButtonsBound) return;
+  mainButtonsBound = true;
+
+  // кнопки сцены
+  el("btnWater")?.addEventListener("click", doWater);
+  el("btnClean")?.addEventListener("click", doClean);
+  document.getElementById("btnFertilize")?.addEventListener("click", doFertilize);
+  document.getElementById("btnMeditate")?.addEventListener("click", doMeditate);
+
+  document.getElementById("btnShop")?.addEventListener("click", () => {
+    renderDecorShop();
+    showDecor(true);
+  });
+
+  const back = el("btnDecorBack");
+  if(back) back.addEventListener("click", () => {
+    showDecor(false);
+    render(state);
+  });
+
+  el("btnReset")?.addEventListener("click", () => {
+    state = defaultState();
+    saveState(state);
+    log("🧨 Сбросили прогресс. Дерево переродилось.");
+    showResult(false);
+    showQuiz(true);
+    updateQuizProgress();
+    setMainUIVisible(false);
+    render(state);
+  });
+}
+
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
     let worldStarted = false;
     const nowMs = () => Date.now();
@@ -1378,6 +1604,133 @@ function pickTreeFromAnswers(ans){
   localStorage.setItem(KEY, JSON.stringify(target));
 }
 
+// ============================
+// Weather (Open-Meteo) - no API key
+// ============================
+
+const WEATHER_REFRESH_MS = 10 * 60 * 1000; // 10 минут
+const DEFAULT_CITY = { name: "Amsterdam", lat: 52.3676, lon: 4.9041 };
+
+function wEl(id){ return document.getElementById(id); }
+
+function weatherCodeToEmoji(code){
+  // У Open-Meteo есть “weathercode” (WMO). Грубо маппим в эмодзи.
+  // Список кодов в их доках, но нам хватит базового. 2
+  if(code === 0) return "☀️";
+  if([1,2,3].includes(code)) return "🌤️";
+  if([45,48].includes(code)) return "🌫️";
+  if([51,53,55,56,57].includes(code)) return "🌦️";
+  if([61,63,65,66,67,80,81,82].includes(code)) return "🌧️";
+  if([71,73,75,77,85,86].includes(code)) return "🌨️";
+  if([95,96,99].includes(code)) return "⛈️";
+  return "🌡️";
+}
+
+async function fetchWeather(lat, lon){
+  const url =
+    `https://api.open-meteo.com/v1/forecast +
+    ?latitude=${encodeURIComponent(lat)} +
+    &longitude=${encodeURIComponent(lon)} +
+    &current=temperature_2m,weather_code,wind_speed_10m +
+    &timezone=auto`;
+
+  const res = await fetch(url);
+  if(!res.ok) throw new Error("weather http " + res.status);
+  return await res.json();
+}
+
+function setWeatherText(text){
+  const t = wEl("weatherText");
+  if(t) t.textContent = text;
+}
+
+function getBrowserLocation(){
+  return new Promise((resolve, reject) => {
+    if(!navigator.geolocation) return reject(new Error("no geolocation"));
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+      err => reject(err),
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 10 * 60 * 1000 }
+    );
+  });
+}
+
+async function updateWeather(){
+  try{
+    setWeatherText("Погода: загружаю…");
+
+    // 1) пробуем геолокацию
+    let loc;
+    try{
+      loc = await getBrowserLocation();
+    } catch(e){
+      // 2) если отказали или не работает, берём дефолт
+      loc = { lat: DEFAULT_CITY.lat, lon: DEFAULT_CITY.lon };
+    }
+
+    const data = await fetchWeather(loc.lat, loc.lon);
+
+    const cur = data.current;
+    const temp = Math.round(cur.temperature_2m);
+    const wind = Math.round(cur.wind_speed_10m);
+    const emoji = weatherCodeToEmoji(cur.weather_code);
+    const fx = weatherCodeToFx(cur.weather_code);
+setWeatherFx(fx);
+
+// сохраняем “погоду” в state, чтобы использовать в росте
+state.weather = state.weather || {};
+state.weather.fx = fx;
+state.weather.mod = weatherGrowthModifier(fx);
+state.weather.updatedAt = Date.now();
+saveState(state);
+
+    setWeatherText(`Погода сейчас: ${emoji} ${temp}°C, ветер ${wind} м/с`);
+  } catch(e){
+    setWeatherText("Погода: не удалось загрузить");
+    console.warn("Weather error:", e);
+  }
+}
+
+function bindWeatherUI(){
+  wEl("weatherRefresh")?.addEventListener("click", updateWeather);
+}
+
+function startWeatherLoop(){
+  updateWeather();
+  setInterval(updateWeather, WEATHER_REFRESH_MS);
+}
+
+// ============================
+// Weather -> FX + Growth modifier
+// ============================
+
+// 0 = clear, 1-3 clouds, 45-48 fog
+// 51..67 drizzle/rain, 80..82 rain showers
+// 71..77 snow, 85..86 snow showers
+// 95..99 thunderstorm
+function weatherCodeToFx(code){
+  if([71,73,75,77,85,86].includes(code)) return "snow";
+  if([51,53,55,56,57,61,63,65,66,67,80,81,82,95,96,99].includes(code)) return "rain";
+  if([0,1].includes(code)) return "sun";
+  return "none";
+}
+
+function setWeatherFx(fx){
+  const el = document.getElementById("weatherFX");
+  if(!el) return;
+
+  el.classList.remove("weather-none","weather-rain","weather-snow","weather-sun");
+  el.classList.add("weather-" + fx);
+}
+
+// Модификатор: влияет на “скорость роста” (ты сам решишь насколько жестко)
+function weatherGrowthModifier(fx){
+  if(fx === "rain") return 1.15; // +15% к росту
+  if(fx === "sun")  return 1.10; // +10%
+  if(fx === "snow") return 0.85; // -15%
+  return 1.00;
+}
+
     // =========================
     // 4) Сердце игры: tick (оффлайн прогресс)
     // =========================
@@ -1669,14 +2022,14 @@ if (img) {
   img.style.transition = "transform 900ms ease";
 }
 
-  // glow
-  const glow = document.querySelector(".glow");
-  if(glow){
-    const lvl = s.growthLevel || 0;
-    glow.style.transform = `translateY(${Math.max(0, lvl * 2)}px) scale(${1 + lvl * 0.02})`;
-    glow.style.transition = "transform 900ms ease";
-  }
+ // glow
+const glow = document.querySelector(".glow");
 
+if(glow){
+  const lvl = s.growthLevel || 0;
+  glow.style.transform = `translateY(${Math.max(0, lvl * 2)}px) scale(${1 + lvl * 0.02})`;
+  glow.style.transition = "transform 900ms ease";
+}
   // тексты (тут лучше показывать твою stageLabel как есть)
   const st = el("stageText");
   if(st) st.textContent = stageLabel(s);
@@ -2017,6 +2370,10 @@ if(wasDry) state.health = clamp(state.health + 2, 0, 100);
     function boot(){
   bindQuiz();
   bindQuizImages();
+  bindMainButtons();
+  bindWeatherUI();
+  startWeatherLoop();
+  maybeShowDailyQuote();
   const btnCollect = document.getElementById("btnCollect");
 if(btnCollect) btnCollect.addEventListener("click", collectLeaves);
 
@@ -2192,18 +2549,16 @@ function showQuiz(show){
 }
 
 function finalizeTreeChoice(treeId){
-  // 1) сохраняем выбор
   state.treeId = treeId;
   saveState(state);
 
-  // 2) закрываем тест/результат
   showResult(false);
   showQuiz(false);
-
-  // 3) возвращаем основной UI
   setMainUIVisible(true);
 
-  // 4) перерисовка и запуск мира
+  bindMainButtons();  // чтобы точно были обработчики
+  setupParallax();    // чтобы параллакс работал сразу, без refresh
+
   render(state);
   renderGround(state);
   startWorld();
@@ -2236,24 +2591,36 @@ function finalizeTreeChoice(treeId){
 function handleQuizOptionClick(btn){
   const q = btn.dataset.q;
   const a = btn.dataset.a;
+
+  // 1) запомнили ответ
   quizAnswers[q] = a;
 
-  // подсветка выбора: все кнопки вопроса сбросить, выбранную выделить
-  document.querySelectorAll(`button[data-q="${q}"]`).forEach(b => b.classList.remove("selected"));
-btn.classList.add("selected");
+  // 2) подсветка выбора: сбросить все кнопки этого вопроса, выбранную выделить
+  document
+    .querySelectorAll(`button[data-q="${q}"]`)
+    .forEach(b => b.classList.remove("selected"));
 
+  btn.classList.add("selected");
+
+  // 3) обновить прогресс
   updateQuizProgress();
 
+  // 4) если ответили на все 4 вопроса
   if(quizAnsweredCount() === 4){
     const res = pickTreeFromAnswers(quizAnswers);
 
     if(res.winner){
-  renderResultOptions([res.winner]);
-  showResult(true);
-}else{
-  renderResultOptions(res.options);
-  showResult(true);
-}
+      renderResultOptions([res.winner]);
+    } else {
+      renderResultOptions(res.options);
+    }
+
+    // 5) показать результат как отдельный экран
+    showQuiz(false);              // <- ВАЖНО: прячем тест
+    showResult(true);
+
+    // 6) прокрутить наверх, чтобы не появлялось "снизу"
+    document.querySelector(".app")?.scrollTo({ top: 0, behavior: "smooth" });
   }
 }
 
@@ -2272,8 +2639,11 @@ function bindQuiz(){
   });
 
   el("btnResultBack").addEventListener("click", () => {
-    showResult(false);
-  });
+  showResult(false);
+  showQuiz(true);
+  setMainUIVisible(false); // чтобы не показать сцену вместо теста
+  document.querySelector(".app")?.scrollTo({ top: 0, behavior: "smooth" });
+});
 
   updateQuizProgress();
 }
@@ -2318,6 +2688,107 @@ function modsBadges(treeId){
   if(nx !== 100) badges.push(`Ночь: ${nx}%`);
 
   return badges;
+}
+
+// ============================
+// Motivational quotes (morning/night)
+// ============================
+
+// 1) Списки цитат. Можешь менять/добавлять сколько хочешь.
+const MORNING_QUOTES = [
+  "Доброе утро. Сегодня не обязан быть идеальным. Достаточно быть в движении.",
+  "Маленький шаг сегодня лучше идеального плана завтра.",
+  "Ты не дерево… хотя стоп. Ты буквально выращиваешь дерево. Так что давай расти вместе.",
+  "Сделай одну полезную вещь и не устраивай драму. Это уже победа."
+];
+
+const NIGHT_QUOTES = [
+  "Спокойной ночи. Всё, что не успел, завтра ещё будет шанс доделать. Без паники.",
+  "Сегодня ты дожил до конца дня. Это уже неплохо. Отдыхай.",
+  "Отпусти день. Завтра будет новая попытка и новое солнце.",
+  "Сон это бесплатный бафф. Пользуйся."
+];
+
+// 2) Утро/ночь по часам. Можно поменять.
+const MORNING_START = 5;   // 05:00
+const MORNING_END   = 12;  // до 11:59 (12 не включительно)
+const NIGHT_START   = 18;  // 18:00
+const NIGHT_END     = 4;   // до 03:59
+
+function pad2(n){ return String(n).padStart(2,"0"); }
+
+// Дата-ключ "2026-02-17"
+function todayKeyLocal(){
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+}
+
+// Определяем период дня: "morning" | "night" | null
+function currentPeriod(){
+  const h = new Date().getHours();
+
+  if(h >= MORNING_START && h < MORNING_END) return "morning";
+
+  // Ночь хитрая: начинается вечером и заканчивается после полуночи
+  // Пример: 18..23 или 0..3
+  if(h >= NIGHT_START || h < NIGHT_END) return "night";
+
+  return null;
+}
+
+function pickRandom(arr){
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// 3) Показ модалки
+function showQuoteModal(title, text){
+  const modal = document.getElementById("quoteModal");
+  const t = document.getElementById("quoteTitle");
+  const x = document.getElementById("quoteText");
+  const btn = document.getElementById("quoteBtn");
+
+  if(!modal || !t || !x || !btn) return;
+
+  t.textContent = title;
+  x.textContent = text;
+
+  modal.classList.remove("hidden");
+
+  const close = () => {
+    modal.classList.add("hidden");
+    btn.removeEventListener("click", close);
+    modal.removeEventListener("click", onBackdrop);
+  };
+
+  const onBackdrop = (e) => {
+    // закрывать только при клике по фону, не по коробке
+    if(e.target === modal) close();
+  };
+
+  btn.addEventListener("click", close);
+  modal.addEventListener("click", onBackdrop);
+}
+
+// 4) Главная функция: проверить и показать 1 раз в период
+function maybeShowDailyQuote(){
+  const period = currentPeriod();
+  if(!period) return;
+
+  const day = todayKeyLocal();
+  const storageKey = `quote_shown_${period}_${day}`;
+
+  // Уже показывали сегодня в этот период
+  if(localStorage.getItem(storageKey) === "1") return;
+
+  // Показываем
+  if(period === "morning"){
+    showQuoteModal("Доброе утро ☀️", pickRandom(MORNING_QUOTES));
+  } else if(period === "night"){
+    showQuoteModal("Спокойной ночи 🌙", pickRandom(NIGHT_QUOTES));
+  }
+
+  // Ставим “галочку”, чтобы второй раз сегодня не спамить
+  localStorage.setItem(storageKey, "1");
 }
 
 function renderResultOptions(treeIds){
