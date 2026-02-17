@@ -1639,33 +1639,32 @@ if(swayEl){
 const tree = s.treeId ? (TREES[s.treeId] || null) : null;
 const img = document.getElementById("treeImg");
 
-if(img && tree){
+if (img) {
   const lvl = s.growthLevel || 0;
 
-  // 1) сначала пробуем картинки по стадиям (семечки/росток/и т.д.)
-  const stageArr = tree.imgsByStage || null;
-  if(stageArr && stageArr.length){
+  // 1) Если есть картинки по стадиям (семечка 0..2, росток и т.д.)
+  const byStage = tree?.imgsByStage || null;
+  if (tree && byStage && byStage.length) {
     const stage = s.stage || 0;
-    const idx = Math.max(0, Math.min(stageArr.length - 1, stage));
-    img.src = stageArr[idx];
-
+    const idx = Math.max(0, Math.min(byStage.length - 1, stage));
+    img.src = byStage[idx];
   } else {
-    // 2) если стадий нет, пробуем картинки по уровням
-    const lvlArr = tree.imgsByLevel || null;
-    if(lvlArr && lvlArr.length){
-      const idx = Math.max(0, Math.min(lvlArr.length - 1, lvl));
-      img.src = lvlArr[idx];
+    // 2) Если есть картинки по уровням (0..10)
+    const byLevel = tree?.imgsByLevel || null;
+    if (tree && byLevel && byLevel.length) {
+      const idx = Math.max(0, Math.min(byLevel.length - 1, lvl));
+      img.src = byLevel[idx];
     } else {
-      // 3) запасной вариант
-      img.src = tree.img || "";
+      // 3) Запасной вариант
+      img.src = tree?.img || "";
     }
   }
 
-  // визуальный рост: масштаб + "вверх" (ТОЛЬКО на img)
+  // визуальный рост
   const scale = 1 + lvl * 0.055;
   const lift  = -lvl * 5;
 
-  img.style.transform = `translateY(${lift}px) scale(${scale})`;
+  img.style.transform = translateY(${lift}px) scale(${scale});
   img.style.transformOrigin = "50% 90%";
   img.style.transition = "transform 900ms ease";
 }
