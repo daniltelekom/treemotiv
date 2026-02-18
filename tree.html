@@ -2928,17 +2928,19 @@ function heightMeters(level){
 // Контроль листопада (чтобы не было ада)
 // =========================
 const LEAF_FALL = {
-  intervalMs: 1800,     // как часто "проверяем" спавн
-  maxOnScreen: 6,     // максимум листьев на экране одновременно
+  intervalMs: 2500,     // как часто "проверяем" спавн
+  maxOnScreen: 4,     // максимум листьев на экране одновременно
+  minGapMs: 4500,
   chance: {            // шанс на одну "проверку"
-    sun:  0.04,
-    rain: 0.06,
-    fog:  0.03,
-    wind: 0.08
+    sun:  0.03,
+    rain: 0.04,
+    fog:  0.02,
+    wind: 0.05
   }
 };
 
 let leafTimer = null;
+let lastLeafAt = 0;
 
 function startLeafFall(){
   if(leafTimer) return;
@@ -2954,7 +2956,13 @@ function startLeafFall(){
     const w = (state.weather || "sun");
     const p = (LEAF_FALL.chance[w] ?? LEAF_FALL.chance.sun);
 
-    if(Math.random() < p) spawnLeaf();
+    const t = Date.now();
+if(t - lastLeafAt < (LEAF_FALL.minGapMs || 0)) return;
+
+if(Math.random() < p){
+  lastLeafAt = t;
+  spawnLeaf();
+}
   }, LEAF_FALL.intervalMs);
 }
     
