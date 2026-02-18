@@ -1153,6 +1153,23 @@ button{
   </div>
 </div>
 
+<!-- Photo popup -->
+<div id="photoModal" class="quoteModal hidden" role="dialog" aria-modal="true">
+  <div class="quoteBox">
+    <div class="quoteTitle">📸 Фото готово</div>
+    <div class="quoteText" id="photoInfo"></div>
+
+    <div style="margin-top:10px; border:1px solid rgba(255,255,255,.10); border-radius:14px; overflow:hidden;">
+      <img id="photoPreview" alt="" style="width:100%; display:block;">
+    </div>
+
+    <div style="display:flex; gap:10px; margin-top:12px;">
+      <button class="quoteBtn" id="btnPhotoSave" type="button">Скачать PNG</button>
+      <button class="quoteBtn" id="btnPhotoClose" type="button">Закрыть</button>
+    </div>
+  </div>
+</div>
+
   <script>
       
       
@@ -1708,17 +1725,28 @@ const TREES = {
     mods: { xpMul: 1.00, waterDecayMul: 1.05, pestsMul: 1.00, nightXpMul: 1.00, waterActionMul: 1.20 }
   },
   spruce: {
+    id: "spruce",
     name: "Ель",
-    icon: "🌲",
-    img: IMG.spruce,
+    desc: "Хвойная, спокойная, зимняя вайбина.",
+
+    // картинки по уровню роста
     imgsByLevel: [
-  IMG.seed,  IMG.seed,  IMG.seed,      // 0..2
-  IMG.sprout,IMG.sprout,IMG.sprout,    // 3..5
-  IMG.young, IMG.young, IMG.young,     // 6..8
-  IMG.adult, IMG.adult                 // 9..10
-],
-    desc: "Ночной страж. Лучше растёт ночью, легче терпит плохие условия.",
-    mods: { xpMul: 0.98, waterDecayMul: 0.95, pestsMul: 0.95, nightXpMul: 1.18 }
+      "assets/trees/spruce/seed_1.png", // lvl 0
+      "assets/trees/spruce/seed_2.png", // lvl 1
+      "assets/trees/spruce/seed_3.png", // lvl 2
+
+      // дальше пока можно повторять seed-3
+      "assets/trees/spruce/seed_3.png", // lvl 3
+      "assets/trees/spruce/seed_3.png", // lvl 4
+      "assets/trees/spruce/seed_3.png", // lvl 5
+      "assets/trees/spruce/seed_3.png", // lvl 6
+      "assets/trees/spruce/seed_3.png", // lvl 7
+      "assets/trees/spruce/seed_3.png", // lvl 8
+      "assets/trees/spruce/seed_3.png", // lvl 9
+      "assets/trees/spruce/seed_3.png"  // lvl 10
+    ],
+
+    mods: { xpMul: 1.00, waterDecayMul: 1.00, pestsMul: 1.00, nightXpMul: 1.00 }
   },
   rowan: {
     name: "Рябина",
@@ -2187,6 +2215,128 @@ if(newLevel > s.growthLevel){
   const info = growthInfo(lvl); // major/minor/label
   // major: 0..3, minor: 0..2 (или 0..1 на взрослом)
   return `${info.label} ${info.major+1}.${info.minor+1} (lvl ${lvl})`;
+}
+
+async function makeScenePhoto(){
+  const scene = document.getElementById("scene");
+  const bg = document.getElementById("bgLayer");
+  const treeImg = document.getElementById("treeImg");
+
+  if(!scene || !treeImg){
+    log("Фото: не нашёл сцену/дерево 😅");
+    return;
+  }
+
+  // размеры фото = размер сцены
+  const r = scene.getBoundingClientRect();
+  const w = Math.round(r.width);
+  const h = Math.round(r.height);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = w * 2;      // 2x для чёткости
+  canvas.height = h * 2;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(2,2);
+
+  // 1) фон: если bgLayer с background-image
+  const bgStyle = bg ? getComputedStyle(bg).backgroundImage : "none";
+  if(bgStyle && bgStyle !== "none"){
+    // backgroundImage: url("...") -> достаём ссылку
+    const m = bgStyle.match(/url\(["']?(.*?)["']?\)/);
+    const url = m ? m[1] : null;
+    if(url){
+      await drawImageUrl(ctx, url, 0, 0, w, h);
+    } else {
+      // fallback: просто заливка
+      ctx.fillStyle = "rgba(10,15,32,1)";
+      ctx.fillRect(0,0,w,h);
+    }
+  } else {
+    // fallback: фон сцены (градиент не вытащим просто, но заливка будет)
+    ctx.fillStyle = "rgba(10,15,32,1)";
+    ctx.fillRect(0,0,w,h);
+  }
+
+  // 2) дерево (картинка)
+  const treeRect = treeImg.getBoundingClientRect();
+  const x = treeRect.left - r.left;
+  const y = treeRect.top - r.top;
+
+  await drawImageElement(ctx, treeImg, x, y, treeRect.width, treeRect.height);
+
+  // 3) подпись даты (по желанию)
+  const stamp = new Date().toLocaleString();
+  ctx.font = "12px system-ui, Arial";
+  ctx.fillStyle = "rgba(255,255,255,.75)";
+  ctx.fillText(stamp, 12, h - 14);
+
+  const dataUrl = canvas.toDataURL("image/png");
+
+  showPhotoModal(dataUrl);
+}
+
+function drawImageUrl(ctx, url, x, y, w, h){
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => { ctx.drawImage(img, x, y, w, h); resolve(); };
+    img.onerror = () => resolve(); // не ломаем фото если фон не загрузился
+    img.src = url;
+  });
+}
+
+function drawImageElement(ctx, imgEl, x, y, w, h){
+  return new Promise((resolve) => {
+    if(imgEl.complete){
+      ctx.drawImage(imgEl, x, y, w, h);
+      resolve();
+      return;
+    }
+    imgEl.onload = () => { ctx.drawImage(imgEl, x, y, w, h); resolve(); };
+    imgEl.onerror = () => resolve();
+  });
+}
+
+let lastPhotoDataUrl = null;
+
+function showPhotoModal(dataUrl){
+  lastPhotoDataUrl = dataUrl;
+
+  const modal = document.getElementById("photoModal");
+  const prev = document.getElementById("photoPreview");
+  const info = document.getElementById("photoInfo");
+  const btnSave = document.getElementById("btnPhotoSave");
+  const btnClose = document.getElementById("btnPhotoClose");
+
+  if(!modal || !prev || !btnSave || !btnClose) return;
+
+  prev.src = dataUrl;
+  if(info) info.textContent = "Можно скачать как PNG или просто закрыть.";
+
+  modal.classList.remove("hidden");
+
+  const close = () => {
+    modal.classList.add("hidden");
+    btnSave.onclick = null;
+    btnClose.onclick = null;
+    modal.onclick = null;
+  };
+
+  btnClose.onclick = close;
+  modal.onclick = (e) => { if(e.target === modal) close(); };
+
+  btnSave.onclick = () => {
+    downloadDataUrl(dataUrl, `tree_photo_${Date.now()}.png`);
+  };
+}
+
+function downloadDataUrl(dataUrl, filename){
+  const a = document.createElement("a");
+  a.href = dataUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
     function stageIcon(s){
@@ -2745,36 +2895,47 @@ markDailyTask(state, "water");
   log(`🕯 Медитация завершена. +${bonusLeaves} листьев. Стрик: ${s.daily.streak}`);
 }
 
-function doPhoto(){
+async function doPhoto(){
   const s = state;
+
+  // 1) Только в солнечную погоду
   if((s.weather || "sun") !== "sun"){
     log("📸 Фото-сессия доступна только в солнечную погоду.");
     return;
   }
 
+  // 2) Только 1 раз в день
   const today = todayKey();
   s.daily = s.daily || {};
   if(s.daily.sunPhotoUsed === today){
     log("📸 Сегодня ты уже делал(а) фото.");
     return;
   }
-
   s.daily.sunPhotoUsed = today;
 
-  // награда
+  // 3) Награда
   const leavesGain = 20;
   s.inventory.leaves += leavesGain;
 
-  // маленький шанс плода
+  let rewardMsg = `📸 Фото-сессия: +${leavesGain} листьев.`;
   if(Math.random() < 0.12){
     s.inventory.fruits += 1;
-    log(`📸 Фото-сессия: +${leavesGain} листьев и 🍎 плод!`);
-  }else{
-    log(`📸 Фото-сессия: +${leavesGain} листьев.`);
+    rewardMsg = `📸 Фото-сессия: +${leavesGain} листьев и 🍎 плод!`;
   }
+  log(rewardMsg);
 
+  // 4) Сохранили и обновили UI (чтобы награда сразу отрисовалась)
   saveState(s);
   render(s);
+
+  // 5) А ВОТ ТУТ РЕАЛЬНОЕ ФОТО + МЕНЮ “Скачать PNG”
+  try{
+    await makeScenePhoto(); // эта функция сама вызовет showPhotoModal(dataUrl)
+  }catch(e){
+    // если что-то пошло не так, хотя бы не падаем
+    log("📸 Не получилось сделать фото (ошибка в сцене/картинке).");
+    console.error(e);
+  }
 }
     
     // =========================
