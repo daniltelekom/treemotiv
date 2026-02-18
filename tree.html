@@ -779,6 +779,89 @@ button{
   0%,100%{ transform: scale(1); opacity:.9; }
   50%    { transform: scale(1.03); opacity:1; }
 }
+
+.layerFull{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+}
+
+.todayList{ display:flex; flex-direction:column; gap:8px; }
+.todayItem{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 12px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background: rgba(0,0,0,.18);
+}
+.todayLeft{ display:flex; align-items:center; gap:10px; }
+.todayCheck{
+  width:22px; height:22px; border-radius:8px;
+  display:grid; place-items:center;
+  border:1px solid var(--line);
+  background: rgba(255,255,255,.06);
+  flex:0 0 22px;
+}
+.todayDone .todayCheck{ background: rgba(73,209,125,.22); border-color: rgba(73,209,125,.45); }
+.todayText b{ display:block; font-size:14px; }
+.todayText small{ display:block; opacity:.7; font-size:12px; margin-top:2px; }
+.todayReward{ opacity:.8; font-size:12px; }
+
+.weatherLine{
+  margin-top: 6px;
+  margin-bottom: 6px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(0,0,0,.18);
+  font-size: 13px;
+  opacity: 0.85;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+}
+
+#dropsLayer{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  overflow:hidden;
+  z-index: 3; /* если нужно поднять, увеличь */
+}
+
+.drop{
+  position:absolute;
+  width:22px;
+  height:22px;
+  border-radius:999px;
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.35), rgba(255,255,255,.06));
+  border: 1px solid rgba(255,255,255,.12);
+  backdrop-filter: blur(2px);
+  pointer-events:auto;
+  cursor:pointer;
+  animation: dropFall linear forwards;
+}
+
+@keyframes dropFall{
+  from{ transform: translateY(-30px); opacity:0; }
+  to{ transform: translateY(110vh); opacity:1; }
+}
+
+#frostOverlay{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  opacity:0;
+  transition: opacity 600ms ease;
+  background:
+    radial-gradient(closest-side at 0% 50%, rgba(200,230,255,.18), transparent 70%),
+    radial-gradient(closest-side at 100% 50%, rgba(200,230,255,.18), transparent 70%),
+    radial-gradient(closest-side at 50% 0%, rgba(200,230,255,.12), transparent 70%),
+    radial-gradient(closest-side at 50% 100%, rgba(200,230,255,.12), transparent 70%);
+  backdrop-filter: blur(1.5px);
+}
+.scene.snow #frostOverlay{ opacity:1; }
     
   </style>
 </head>
@@ -950,6 +1033,11 @@ button{
       <div class="pillBar"><div id="waterBar"></div></div>
     </div>
   </div>
+  
+  <div id="weatherBar" class="weatherBar">
+  <span id="weatherText">Погода: …</span>
+  <button id="weatherRefresh" class="weatherBtn" type="button">↻</button>
+</div>
 
   <div class="hudRow">
     <!-- 16 Fruits -->
@@ -970,11 +1058,23 @@ button{
       <span class="pillV" id="invLeaves">0</span>
     </div>
 
-    <div id="weatherBar" class="weatherBar">
-  <span id="weatherText">Погода: …</span>
-  <button id="weatherRefresh" class="weatherBtn" type="button">↻</button>
+  </div>
 </div>
 
+<!-- TODAY / DAILY TASKS -->
+<div class="card todayCard" id="todayCard" style="display:none;">
+  <div class="row" style="align-items:flex-start;">
+    <div>
+      <div class="listTitle">📌 Сегодня</div>
+      <div class="listSub" id="todaySub">Сделай 3 маленьких действия и забери мешочек.</div>
+    </div>
+    <button class="btn small" id="btnDailyClaim" type="button" style="display:none;">🎁 Забрать</button>
+  </div>
+
+  <div class="sep"></div>
+
+  <div class="todayList" id="todayList">
+    <!-- тут JS нарисует задачи -->
   </div>
 </div>
  
@@ -982,7 +1082,9 @@ button{
     <div class="scene" id="scene">
         <div id="bgLayer"></div>
   <div class="glow"></div>
-  <div id="weatherLayer" style="position:absolute; inset:0; pointer-events:none;"></div>
+  <div id="weatherLayer" class="layerFull"></div>
+  <div id="dropsLayer"></div>
+  <div id="frostOverlay"></div>
   <div id="heightGauge">
   <div id="heightBig" class="hgValue">—</div>
   <div class="hgBar">
@@ -1000,14 +1102,14 @@ button{
     <button id="btnMeditate" class="meditateOrb" type="button" title="Meditation">☀️</button>
   </div>
 </div>
-  <div id="dayNightLayer" style="position:absolute; inset:0; pointer-events:none;"></div>
+ <div id="dayNightLayer" class="layerFull"></div>
 
   <div id="groundLayer" style="position:absolute; left:0; right:0; bottom:0; height:64px; pointer-events:none;"></div>
 
   <div id="groundCounter" style="position:absolute; left:12px; bottom:10px; padding:6px 10px; border-radius:999px; border:1px solid var(--line); background: rgba(0,0,0,.22); color: var(--text); font-size:12px; font-weight:800; display:none;">
     🍃 <span id="groundCount">0</span>
   </div>
-  <div id="decorLayer" style="position:absolute; inset:0; pointer-events:none;"></div>
+ <div id="decorLayer" class="layerFull"></div>
   
   <!-- RIGHT ACTIONS (7-9 + 20) -->
 <div class="hudRight" id="hudRight">
@@ -1023,6 +1125,9 @@ button{
  <button class="iconBtn" id="btnShop" type="button" title="Shop">
   <img src="icons/shop.png" class="btnIcon" alt="">
 </button>
+<button class="iconBtn" id="btnPhoto" type="button" title="Photo" style="display:none;">
+  <span style="font-size:18px; line-height:1;">📸</span>
+</button>
 </div>
 </div>
       
@@ -1036,6 +1141,15 @@ button{
     <div class="quoteTitle" id="quoteTitle">Цитата</div>
     <div class="quoteText" id="quoteText"></div>
     <button class="quoteBtn" id="quoteBtn" type="button">Ок</button>
+  </div>
+</div>
+
+<!-- Reward Popup -->
+<div id="rewardModal" class="quoteModal hidden" role="dialog" aria-modal="true">
+  <div class="quoteBox">
+    <div class="quoteTitle" id="rewardTitle">🎁 Награда получена</div>
+    <div class="quoteText" id="rewardText"></div>
+    <button class="quoteBtn" id="rewardBtn" type="button">Ок</button>
   </div>
 </div>
 
@@ -1185,6 +1299,151 @@ function yesterdayKey(){
   const m = String(d.getMonth()+1).padStart(2,"0");
   const day = String(d.getDate()).padStart(2,"0");
   return `${y}-${m}-${day}`;
+}
+
+function ensureDailyToday(s){
+  s.daily = s.daily || { lastMeditateDay:null, streak:0, total:0, today:{date:null, tasks:{water:0, clean:0, meditate:0}, claimed:false} };
+  s.daily.today = s.daily.today || { date:null, tasks:{water:0, clean:0, meditate:0}, claimed:false };
+
+  const t = todayKey();
+  if(s.daily.today.date !== t){
+    s.daily.today.date = t;
+    s.daily.today.tasks = { water:0, clean:0, meditate:0 };
+    s.daily.today.claimed = false;
+  }
+}
+
+function dailyProgress(s){
+  ensureDailyToday(s);
+  const tt = s.daily.today.tasks;
+  const done = (tt.water?1:0) + (tt.clean?1:0) + (tt.meditate?1:0);
+  return { done, total: 3 };
+}
+
+function markDailyTask(s, key){
+  ensureDailyToday(s);
+  if(!s.daily.today.tasks[key]){
+    s.daily.today.tasks[key] = 1;
+    saveState(s);
+  }
+}
+
+function claimDailyBag(){
+  const s = state;
+  ensureDailyToday(s);
+  const prog = dailyProgress(s);
+
+  if(prog.done < prog.total){
+    log("Сначала выполни все задания дня 🙂");
+    return;
+  }
+  if(s.daily.today.claimed){
+    log("Мешочек уже забран сегодня.");
+    return;
+  }
+
+  s.daily.today.claimed = true;
+
+  // --- 1) выдаём награды и собираем текст наград ---
+  const lines = [];
+
+  const baseLeaves = 25;
+  s.inventory.leaves += baseLeaves;
+  lines.push(`🍃 Листья: +${baseLeaves}`);
+
+  const r = Math.random();
+  if(r < 0.35){
+    // удобрение на 2 часа
+    const addMs = 2 * 60 * 60 * 1000;
+    const now = nowMs();
+    s.growthBuffUntil = Math.max(s.growthBuffUntil || 0, now) + addMs;
+    lines.push(`🌿 Удобрение: 2 часа`);
+  } else if(r < 0.55){
+    s.inventory.fruits += 1;
+    lines.push(`🍎 Плод: +1`);
+  } else if(r < 0.70){
+    s.inventory.essence += 1;
+    lines.push(`✨ Эссенция: +1`);
+  } else {
+    // только листья, уже добавили
+  }
+
+  // --- 2) сохраняем, обновляем UI ---
+  saveState(s);
+  render(s);
+
+  // --- 3) скрываем ежедневки и показываем окно награды ---
+  const card = el("todayCard");
+  if(card) card.style.display = "none";
+
+  showRewardModal("Вы получили:\n" + lines.join("\n"));
+}
+
+function renderToday(s){
+  const card = el("todayCard");
+  if(!card) return;
+
+  // показываем только когда дерево выбрано
+  if(!s.treeId){
+    card.style.display = "none";
+    return;
+  }
+
+  ensureDailyToday(s);
+const prog = dailyProgress(s);
+
+// ✅ Если мешочек уже забран сегодня — скрываем карточку ежедневок
+if(s.daily.today.claimed){
+  card.style.display = "none";
+  return;
+}
+
+card.style.display = "";
+
+  const sub = el("todaySub");
+  if(sub) sub.textContent = `Сделай 3 простых действия: ${prog.done}/3`;
+
+  const list = el("todayList");
+  if(list){
+    const t = s.daily.today.tasks;
+    
+  const scene = el("scene");
+if(scene){
+  scene.classList.toggle("snow", (s.weather || "sun") === "snow");
+}
+
+    list.innerHTML = `
+      <div class="todayItem ${t.water ? "todayDone" : ""}">
+        <div class="todayLeft">
+          <div class="todayCheck">${t.water ? "✓" : ""}</div>
+          <div class="todayText"><b>Полей 1 раз</b><small>дай воды дереву</small></div>
+        </div>
+        <div class="todayReward">+ листья</div>
+      </div>
+
+      <div class="todayItem ${t.clean ? "todayDone" : ""}">
+        <div class="todayLeft">
+          <div class="todayCheck">${t.clean ? "✓" : ""}</div>
+          <div class="todayText"><b>Убери жуков</b><small>защита и забота</small></div>
+        </div>
+        <div class="todayReward">+ листья</div>
+      </div>
+
+      <div class="todayItem ${t.meditate ? "todayDone" : ""}">
+        <div class="todayLeft">
+          <div class="todayCheck">${t.meditate ? "✓" : ""}</div>
+          <div class="todayText"><b>Медитируй 1 раз</b><small>тихий бонус</small></div>
+        </div>
+        <div class="todayReward">+ листья</div>
+      </div>
+    `;
+  }
+
+  const btn = el("btnDailyClaim");
+  if(btn){
+    const canClaim = (prog.done === prog.total) && !s.daily.today.claimed;
+    btn.style.display = canClaim ? "" : "none";
+  }
 }
 
     // =========================
@@ -1364,6 +1623,35 @@ young: svgData(`
   <path d="M128 210c0-50 2-78 10-110" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="10" stroke-linecap="round"/>
   <text x="22" y="44" fill="rgba(255,255,255,.55)" font-size="18" font-family="system-ui">Молодое</text>
 </svg>`),
+
+adult: svgData(`
+  <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256">
+    <defs>
+      <radialGradient id="g" cx="50%" cy="40%" r="60%">
+        <stop offset="0%" stop-color="#8af0b3" stop-opacity=".35"/>
+        <stop offset="100%" stop-color="#0b1020" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+
+    <rect width="256" height="256" rx="28" fill="rgba(0,0,0,0)"/>
+    <circle cx="128" cy="120" r="92" fill="url(#g)"/>
+
+    <!-- крона -->
+    <circle cx="128" cy="110" r="70" fill="rgba(73,209,125,.28)"/>
+    <circle cx="92"  cy="120" r="48" fill="rgba(122,162,255,.18)"/>
+    <circle cx="170" cy="125" r="52" fill="rgba(91,124,255,.14)"/>
+
+    <!-- ствол -->
+    <path d="M128 205c-10-22-10-48-4-70 6-22 6-34 0-52"
+          fill="none" stroke="rgba(255,255,255,.35)" stroke-width="10" stroke-linecap="round"/>
+    <path d="M128 205c10-22 10-48 4-70-6-22-6-34 0-52"
+          fill="none" stroke="rgba(0,0,0,.25)" stroke-width="6" stroke-linecap="round"/>
+
+    <!-- земля -->
+    <path d="M42 214c28-18 56-18 86-8 32 10 58 9 86-6"
+          fill="none" stroke="rgba(255,255,255,.20)" stroke-width="6" stroke-linecap="round"/>
+  </svg>
+`),
 
 wise:  simpleIcon("мир"),
 drive: simpleIcon("эн"),
@@ -1573,9 +1861,18 @@ function pickTreeFromAnswers(ans){
     inventory: { leaves: 0, fruits: 0, essence: 0 },
     decor: { lantern: false, fence: false },
     daily: {
+  sunPhotoUsed: null, // "YYYY-MM-DD"
+  // медитация 
   lastMeditateDay: null,  // "YYYY-MM-DD"
   streak: 0,
-  total: 0
+  total: 0,
+
+  // "Сегодня" (новое)
+  today: {
+    date: null, // "YYYY-MM-DD"
+    tasks: { water:0, clean:0, meditate:0 }, // 0/1
+    claimed: false
+  }
 },
   };
 }
@@ -1604,6 +1901,8 @@ function pickTreeFromAnswers(ans){
   localStorage.setItem(KEY, JSON.stringify(target));
 }
 
+
+
 // ============================
 // Weather (Open-Meteo) - no API key
 // ============================
@@ -1628,11 +1927,11 @@ function weatherCodeToEmoji(code){
 
 async function fetchWeather(lat, lon){
   const url =
-    `https://api.open-meteo.com/v1/forecast +
-    ?latitude=${encodeURIComponent(lat)} +
-    &longitude=${encodeURIComponent(lon)} +
-    &current=temperature_2m,weather_code,wind_speed_10m +
-    &timezone=auto`;
+    `https://api.open-meteo.com/v1/forecast` +
+    `?latitude=${encodeURIComponent(lat)}` +
+    `&longitude=${encodeURIComponent(lon)}` +
+    `&current=temperature_2m,weather_code,wind_speed_10m` +
+    `&timezone=auto`;
 
   const res = await fetch(url);
   if(!res.ok) throw new Error("weather http " + res.status);
@@ -1678,10 +1977,9 @@ async function updateWeather(){
 setWeatherFx(fx);
 
 // сохраняем “погоду” в state, чтобы использовать в росте
-state.weather = state.weather || {};
-state.weather.fx = fx;
-state.weather.mod = weatherGrowthModifier(fx);
-state.weather.updatedAt = Date.now();
+state.weather = fx;                 // ← строка: "rain"/"snow"/"sun"/"none"
+state.weatherMod = weatherGrowthModifier(fx);  // ← отдельно множитель (если хочешь)
+state.weatherUpdatedAt = Date.now();
 saveState(state);
 
     setWeatherText(`Погода сейчас: ${emoji} ${temp}°C, ветер ${wind} м/с`);
@@ -1741,9 +2039,25 @@ function weatherGrowthModifier(fx){
       
 const mods = tree?.mods || {};
 const w = s.weather || "sun";
-const weatherXpMul = (w === "sun") ? 1.10 : 1.0;
-const weatherWaterDecayMul = (w === "rain") ? 0.75 : 1.0;
-const weatherPestsMul = (w === "fog") ? 0.75 : 1.0;
+
+// XP множитель (влияние погоды на рост)
+const weatherXpMul =
+  (w === "sun")  ? 1.10 :
+  (w === "rain") ? 1.15 :
+  (w === "snow") ? 0.85 :
+  1.0;
+
+// расход воды (дождь помогает)
+const weatherWaterDecayMul =
+  (w === "rain") ? 0.75 :
+  (w === "snow") ? 1.10 :   // в снег вода хуже “работает” (опционально)
+  1.0;
+
+// жуки (туман мешает жукам, в мороз тоже можно ослабить)
+const weatherPestsMul =
+  (w === "fog")  ? 0.75 :
+  (w === "snow") ? 0.85 :
+  1.0;
 const xpMul = mods.xpMul ?? 1.0;
 const waterDecayMul = mods.waterDecayMul ?? 1.0;
 const pestsMul = mods.pestsMul ?? 1.0;
@@ -1780,15 +2094,23 @@ const night = isNightByLocalTime();
 );
 
       // 2) вредители: растут при плохих условиях
-      const badWater = (s.water < 25 || s.water > 95);
-      if(badWater){
-        s.pests = clamp(
-  s.pests + pestsGrowthPerHour * pestsMul * weatherPestsMul * dtHours,
-  0, 100
-);
-      }else{
-        s.pests = clamp(s.pests - pestsRecoverPerHour * (2 - pestsMul) * dtHours, 0, 100);
-      }
+     // 2) вредители: растут при плохих условиях
+    const badWater = (s.water < 25 || s.water > 95);
+
+// w УЖЕ объявлен выше в tickTree, второй раз его НЕ объявляем
+    const fogPestsMul = (w === "fog") ? 1.25 : 1.0;
+
+    if(badWater){
+      s.pests = clamp(
+      s.pests + pestsGrowthPerHour * fogPestsMul * weatherPestsMul * dtHours,
+       0, 100
+  );
+   }else{
+     s.pests = clamp(
+     s.pests - pestsRecoverPerHour * (2 - fogPestsMul) * dtHours,
+       0, 100
+  );
+}
 
       // 3) здоровье: падает только если реально плохо
       const veryBad = (s.water < 15 || s.pests > 70);
@@ -2102,6 +2424,13 @@ if(xpMini) xpMini.textContent = `${Math.round(s.xp || 0)}`;
   if(typeof renderWeather === "function") renderWeather();
   if(typeof renderDayNight === "function") renderDayNight();
   if(typeof renderDecor === "function") renderDecor();
+      renderToday(s);
+      
+      
+      const btnPhoto = el("btnPhoto");
+if(btnPhoto){
+  btnPhoto.style.display = ((s.weather || "sun") === "sun") ? "" : "none";
+}
 }
 
 function renderWeather(){
@@ -2277,6 +2606,12 @@ function heightMeters(level){
       const dx = (Math.random()*80 - 40).toFixed(0) + "px";
       const rot = (Math.random()*240 - 120).toFixed(0) + "deg";
       const dur = (6 + Math.random()*6).toFixed(2) + "s";
+      const w = state.weather || "sun";
+let p = 0.35;                 // базовый шанс
+if(w === "wind") p = 0.55;
+if(w === "fog")  p = 0.55;    // туман тоже чаще
+if(w === "rain") p = 0.45;
+if(Math.random() < p) spawnLeaf();
 
       leaf.style.left = x + "%";
       leaf.style.setProperty("--dx", dx);
@@ -2293,6 +2628,44 @@ function heightMeters(level){
   renderGround(state);
 }, 14000);
     }
+    
+    function spawnDrop(){
+  if((state.weather || "sun") !== "rain") return;
+
+  const layer = document.getElementById("dropsLayer");
+  if(!layer) return;
+
+  const d = document.createElement("div");
+  d.className = "drop";
+  d.style.left = (Math.random()*100) + "%";
+  d.style.animationDuration = (3.5 + Math.random()*2.5) + "s";
+
+  d.addEventListener("click", () => collectDrop(d));
+  layer.appendChild(d);
+
+  // авто-удаление
+  setTimeout(() => d.remove(), 8000);
+}
+
+function collectDrop(node){
+  const s = state;
+
+  const r = Math.random();
+  if(r < 0.55){
+    s.inventory.leaves += 3;
+    log("💧 Капля: +листья");
+  } else if(r < 0.85){
+    s.water = clamp(s.water + 3, 0, 100);
+    log("💧 Капля: +вода");
+  } else {
+    s.inventory.essence += 1;
+    log("💧 Капля: +эссенция");
+  }
+
+  node.remove();
+  saveState(s);
+  render(s);
+}
 
     // =========================
     // 7) Игровые действия
@@ -2315,6 +2688,8 @@ function heightMeters(level){
 state.water = clamp(state.water + add, 0, 100);
 if(wasDry) state.health = clamp(state.health + 2, 0, 100);
 
+markDailyTask(state, "water");
+
   saveState(state);
   pulseTree();
   log(`💧 Полили (+${Math.round(add)} воды). Дерево довольно.`);
@@ -2323,6 +2698,7 @@ if(wasDry) state.health = clamp(state.health + 2, 0, 100);
 
     function doClean(){
       state.pests = clamp(state.pests - 35, 0, 100);
+      markDailyTask(state, "clean");
       saveState(state);
       pulseTree();
       log("🧹 Жуки изгнаны.");
@@ -2353,30 +2729,73 @@ if(wasDry) state.health = clamp(state.health + 2, 0, 100);
 
   // маленькая эссенция редко
   if(Math.random() < 0.25) s.inventory.essence += 1;
+  if((s.weather || "sun") === "snow"){
+  s.inventory.essence += 1; // дополнительная эссенция
+}
 
   // чуть восстанавливаем
   s.health = clamp(s.health + 6, 0, 100);
   s.pests = clamp(s.pests - 8, 0, 100);
+  
+  markDailyTask(s, "meditate");
 
   saveState(s);
   render(s);
 
   log(`🕯 Медитация завершена. +${bonusLeaves} листьев. Стрик: ${s.daily.streak}`);
 }
+
+function doPhoto(){
+  const s = state;
+  if((s.weather || "sun") !== "sun"){
+    log("📸 Фото-сессия доступна только в солнечную погоду.");
+    return;
+  }
+
+  const today = todayKey();
+  s.daily = s.daily || {};
+  if(s.daily.sunPhotoUsed === today){
+    log("📸 Сегодня ты уже делал(а) фото.");
+    return;
+  }
+
+  s.daily.sunPhotoUsed = today;
+
+  // награда
+  const leavesGain = 20;
+  s.inventory.leaves += leavesGain;
+
+  // маленький шанс плода
+  if(Math.random() < 0.12){
+    s.inventory.fruits += 1;
+    log(`📸 Фото-сессия: +${leavesGain} листьев и 🍎 плод!`);
+  }else{
+    log(`📸 Фото-сессия: +${leavesGain} листьев.`);
+  }
+
+  saveState(s);
+  render(s);
+}
     
     // =========================
     // 8) Запуск
     // =========================
     function boot(){
+  ensureDailyToday(state);
+  renderToday(state);
   bindQuiz();
   bindQuizImages();
   bindMainButtons();
+  el("btnDailyClaim")?.addEventListener("click", claimDailyBag);
+  el("btnPhoto")?.addEventListener("click", doPhoto);
   bindWeatherUI();
   startWeatherLoop();
   maybeShowDailyQuote();
   const btnCollect = document.getElementById("btnCollect");
 if(btnCollect) btnCollect.addEventListener("click", collectLeaves);
-
+if(typeof state.weather === "string"){
+  setWeatherFx(state.weather);
+}
 (function setupBgParallax(){
   const bg = document.getElementById("bgLayer");
   const scene = document.getElementById("scene");
@@ -2445,32 +2864,7 @@ renderGround(state);
 startWorld();
 setupParallax();
 if(res.msg) log(res.msg);
-
-      // кнопки
-      el("btnWater").addEventListener("click", doWater);
-      el("btnClean").addEventListener("click", doClean);
-      document.getElementById("btnFertilize")?.addEventListener("click", doFertilize);
-      document.getElementById("btnMeditate")?.addEventListener("click", doMeditate);
-      document.getElementById("btnShop")?.addEventListener("click", () => {
-  // временно: открываем твой экран украшений
-  renderDecorShop();
-  showDecor(true);
-});
-      
-const back = el("btnDecorBack");
-if(back) back.addEventListener("click", () => {
-  showDecor(false);
-  render(state);
-});
-      el("btnReset").addEventListener("click", () => {
-  state = defaultState();
-  saveState(state);
-  log("🧨 Сбросили прогресс. Дерево переродилось.");
-  showQuiz(true);
-  updateQuizProgress();
-  render(state);
-});
-    }
+   }
     
   function doFertilize(){
   const cost = 15; // листья
@@ -2570,22 +2964,28 @@ function finalizeTreeChoice(treeId){
 
   setInterval(() => {
   const w = state.weather || "sun";
-  const p = (w === "wind") ? 0.55 : 0.35;
+  const p = (w === "rain" || w === "snow") ? 0.55 : 0.35;
   if(Math.random() < p) spawnLeaf();
 }, 900);
 
   setInterval(() => {
-    const r = tickTree(state, nowMs());
-    saveState(state);
-    ensureWeather();
-    render(state);
-    renderGround(state);
-    if(r.msg) log(r.msg);
-  }, 10000);
+  const r = tickTree(state, nowMs());
+  saveState(state);
+  render(state);
+  renderGround(state);
+  if(r.msg) log(r.msg);
+}, 10000);
   
   setInterval(() => {
   if(isNightByLocalTime() && Math.random() < 0.35) spawnFirefly();
 }, 1200);
+
+setInterval(() => {
+  if((state.weather || "sun") === "rain"){
+    if(Math.random() < 0.40) spawnDrop();
+  }
+}, 1200);
+
 }
 
 function handleQuizOptionClick(btn){
@@ -2764,6 +3164,27 @@ function showQuoteModal(title, text){
     // закрывать только при клике по фону, не по коробке
     if(e.target === modal) close();
   };
+
+  btn.addEventListener("click", close);
+  modal.addEventListener("click", onBackdrop);
+}
+
+function showRewardModal(text){
+  const modal = document.getElementById("rewardModal");
+  const x = document.getElementById("rewardText");
+  const btn = document.getElementById("rewardBtn");
+  if(!modal || !x || !btn) return;
+
+  x.textContent = text;
+  modal.classList.remove("hidden");
+
+  const close = () => {
+    modal.classList.add("hidden");
+    btn.removeEventListener("click", close);
+    modal.removeEventListener("click", onBackdrop);
+  };
+
+  const onBackdrop = (e) => { if(e.target === modal) close(); };
 
   btn.addEventListener("click", close);
   modal.addEventListener("click", onBackdrop);
