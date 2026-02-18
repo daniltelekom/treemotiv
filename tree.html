@@ -1198,9 +1198,8 @@ function bindMainButtons(){
   document.getElementById("btnMeditate")?.addEventListener("click", doMeditate);
 
   document.getElementById("btnShop")?.addEventListener("click", () => {
-    renderDecorShop();
-    showDecor(true);
-  });
+  showDecor(true); // showDecor сам вызовет ensureShop() и renderShop()
+});
 
   const back = el("btnDecorBack");
   if(back) back.addEventListener("click", () => {
@@ -2929,13 +2928,13 @@ function heightMeters(level){
 // Контроль листопада (чтобы не было ада)
 // =========================
 const LEAF_FALL = {
-  intervalMs: 900,     // как часто "проверяем" спавн
-  maxOnScreen: 12,     // максимум листьев на экране одновременно
+  intervalMs: 1800,     // как часто "проверяем" спавн
+  maxOnScreen: 6,     // максимум листьев на экране одновременно
   chance: {            // шанс на одну "проверку"
-    sun:  0.10,
-    rain: 0.13,
-    fog:  0.08,
-    wind: 0.18
+    sun:  0.04,
+    rain: 0.06,
+    fog:  0.03,
+    wind: 0.08
   }
 };
 
