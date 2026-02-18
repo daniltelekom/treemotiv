@@ -862,6 +862,11 @@ button{
   backdrop-filter: blur(1.5px);
 }
 .scene.snow #frostOverlay{ opacity:1; }
+
+.shopTabs{ display:flex; gap:8px; margin:10px 0; flex-wrap:wrap; }
+.tabBtn{ padding:8px 10px; border-radius:10px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.06); color:inherit; }
+.tabBtn.active{ background:rgba(255,255,255,.14); }
+.shopWallet{ display:flex; gap:8px; margin:0 0 10px 0; flex-wrap:wrap; }
     
   </style>
 </head>
@@ -994,6 +999,9 @@ button{
    <div class="decor" id="decor" style="display:none; border:1px solid var(--line); background: rgba(15,23,48,.55); border-radius:16px; padding:12px; margin-bottom:12px;">
   <div class="rTitle">🪵 Украшения</div>
   <div class="rSub">Сделайте место уютнее. Покупка за листья.</div>
+
+  <div id="shopTabs" class="shopTabs"></div>
+<div id="shopWallet" class="shopWallet"></div>
 
   <div class="rGrid" id="decorGrid"></div>
 
@@ -1781,6 +1789,47 @@ const DECOR_ITEMS = [
   { id:"fence", name:"Заборчик", desc:"Уютная граница вашего места.", cost: 35 },
 ];
 
+// =========================
+// Магазин: вкладки + общий каталог
+// =========================
+const SHOP_TABS = [
+  { id:"bg",    name:"🖼 Фоны" },
+  { id:"decor", name:"🪵 Декор" },
+  { id:"fx",    name:"✨ Эффекты" },
+  { id:"upg",   name:"🧪 Улучшения" }
+];
+
+// Примеры. Поменяешь цены/описания как захочешь.
+const SHOP_ITEMS = [
+  // --- ФОНЫ ---
+  { id:"bg_meadow", tab:"bg", name:"Луг", desc:"Мягкий дневной луг и спокойная ночь.", cost:{ leaves:120 }, type:"bg",
+    data:{ day:'assets/bg_day.png', night:'assets/bg_night.png' } },
+
+  { id:"bg_mystic", tab:"bg", name:"Мистический лес", desc:"Чуть магии, но без кринжа.", cost:{ fruits:2 }, type:"bg",
+    data:{ day:'assets/bg_day.png', night:'assets/bg_night.png' } },
+
+  // --- ДЕКОР (твой текущий) ---
+  { id:"fence", tab:"decor", name:"Заборчик", desc:"Уют +10, смысла 0.", cost:{ leaves:80 }, type:"decor" },
+  { id:"lantern", tab:"decor", name:"Фонарь", desc:"Ночью светится. Красиво.", cost:{ leaves:140 }, type:"decor" },
+
+  // --- ЭФФЕКТЫ ---
+  { id:"fireflies", tab:"fx", name:"Светлячки", desc:"Появляются ночью на фоне.", cost:{ fruits:3 }, type:"fx" },
+  { id:"soft_rain", tab:"fx", name:"Мягкий дождик", desc:"Дождь выглядит приятнее.", cost:{ fruits:2 }, type:"fx" },
+
+  // --- УЛУЧШЕНИЯ (за эссенцию) ---
+  { id:"upgrade_compost", tab:"upg", name:"Компост", desc:"Чуть меньше расход воды (логика добавится позже).", cost:{ essence:5 }, type:"upg" },
+];
+
+function ensureShop(){
+  state.shop = state.shop || {
+    tab: "bg",
+    owned: {},        // { itemId:true }
+    equipped: { bg:null }, // bg itemId
+    fx: {}            // { fxId:true } включенные эффекты
+  };
+  state.inventory = state.inventory || { leaves:0, essence:0, fruits:0 };
+}
+
 const GROWTH_XP_THRESHOLDS = [
   0,    // L0
   30,   // L1
@@ -2442,9 +2491,21 @@ function render(s){
     // фон
     const bg = document.getElementById("bgLayer");
     if(bg){
-      bg.style.backgroundImage = night
-        ? 'url("assets/bg_night.png")'
-        : 'url("assets/bg_day.png")';
+      ensureShop();
+
+let dayBg = 'assets/bg_day.png';
+let nightBg = 'assets/bg_night.png';
+
+const eq = state.shop?.equipped?.bg;
+if(eq){
+  const it = SHOP_ITEMS.find(x => x.id === eq && x.type === "bg");
+  if(it?.data?.day) dayBg = it.data.day;
+  if(it?.data?.night) nightBg = it.data.night;
+}
+
+bg.style.backgroundImage = night
+  ? `url("${nightBg}")`
+  : `url("${dayBg}")`;
     }
   }
     // фон по стадии
@@ -2645,55 +2706,146 @@ function showDecor(show){
   const d = el("decor");
   if(d) d.style.display = show ? "" : "none";
   setMainUIVisible(!show);
+
+  if(show){
+    ensureShop();
+    renderShop();
+  }
 }
 
-function renderDecorShop(){
-  const grid = el("decorGrid");
-  grid.innerHTML = "";
+function setShopTab(tabId){
+  ensureShop();
+  state.shop.tab = tabId;
+  saveState(state);
+  renderShop();
+}
 
-  DECOR_ITEMS.forEach(it => {
-    const owned = !!state.decor?.[it.id];
-    const canBuy = (state.inventory.leaves || 0) >= it.cost;
+function canAfford(cost){
+  ensureShop();
+  const inv = state.inventory;
+  if(cost.leaves && (inv.leaves||0) < cost.leaves) return false;
+  if(cost.fruits && (inv.fruits||0) < cost.fruits) return false;
+  if(cost.essence && (inv.essence||0) < cost.essence) return false;
+  return true;
+}
+
+function pay(cost){
+  ensureShop();
+  if(cost.leaves) state.inventory.leaves -= cost.leaves;
+  if(cost.fruits) state.inventory.fruits -= cost.fruits;
+  if(cost.essence) state.inventory.essence -= cost.essence;
+}
+
+function buyOrEquip(itemId){
+  ensureShop();
+  const it = SHOP_ITEMS.find(x => x.id === itemId);
+  if(!it) return;
+
+  const owned = !!state.shop.owned[itemId];
+
+  // если не куплено: пробуем купить
+  if(!owned){
+    if(!canAfford(it.cost)) return;
+    pay(it.cost);
+    state.shop.owned[itemId] = true;
+  }
+
+  // если фон: экипируем
+  if(it.type === "bg"){
+    state.shop.equipped.bg = itemId;
+  }
+
+  // если декор: включаем (совместимо с твоей renderDecor)
+  if(it.type === "decor"){
+    state.decor = state.decor || {};
+    state.decor[itemId] = true;
+  }
+
+  // если эффект: включаем/выключаем
+  if(it.type === "fx"){
+    state.shop.fx = state.shop.fx || {};
+    state.shop.fx[itemId] = !state.shop.fx[itemId];
+  }
+
+  saveState(state);
+  render(state);
+  renderGround(state);
+  renderShop();
+}
+
+function renderShop(){
+  ensureShop();
+
+  const grid = el("decorGrid");
+  if(!grid) return;
+
+  // (1) Рисуем табы (если у тебя нет элемента под табы, добавим в HTML ниже)
+  const tabs = el("shopTabs");
+  if(tabs){
+    tabs.innerHTML = SHOP_TABS.map(t => {
+      const active = (state.shop.tab === t.id);
+      return `<button type="button" class="tabBtn ${active ? "active":""}" data-tab="${t.id}">${t.name}</button>`;
+    }).join("");
+    tabs.querySelectorAll("button[data-tab]").forEach(b=>{
+      b.onclick = () => setShopTab(b.dataset.tab);
+    });
+  }
+
+  // (2) Кошелёк
+  const wallet = el("shopWallet");
+  if(wallet){
+    wallet.innerHTML = `
+      <span class="badge">🍃 ${state.inventory.leaves||0}</span>
+      <span class="badge">🍎 ${state.inventory.fruits||0}</span>
+      <span class="badge">✨ ${state.inventory.essence||0}</span>
+    `;
+  }
+
+  // (3) Карточки
+  grid.innerHTML = "";
+  const items = SHOP_ITEMS.filter(x => x.tab === state.shop.tab);
+
+  items.forEach(it=>{
+    const owned = !!state.shop.owned[it.id];
+    const affordable = canAfford(it.cost);
+
+    let price = [];
+    if(it.cost.leaves) price.push(`🍃 ${it.cost.leaves}`);
+    if(it.cost.fruits) price.push(`🍎 ${it.cost.fruits}`);
+    if(it.cost.essence) price.push(`✨ ${it.cost.essence}`);
+
+    let status = "";
+    if(it.type === "bg" && state.shop.equipped.bg === it.id) status = `<span class="badge">Выбран</span>`;
+    if(it.type === "fx" && state.shop.fx?.[it.id]) status = `<span class="badge">Включен</span>`;
+    if(owned && !status) status = `<span class="badge">Куплено</span>`;
+
+    const btnText =
+      !owned ? "Купить" :
+      (it.type === "bg") ? "Выбрать" :
+      (it.type === "fx") ? (state.shop.fx?.[it.id] ? "Выключить" : "Включить") :
+      "Ок";
 
     const card = document.createElement("div");
     card.className = "rCard";
     card.innerHTML = `
-      <div class="rImg">${it.id === "lantern" ? "🏮" : "🪵"}</div>
+      <div class="rImg">${it.tab === "bg" ? "🖼" : it.tab === "decor" ? "🪵" : it.tab === "fx" ? "✨" : "🧪"}</div>
       <div class="rBody">
         <div class="name">${it.name}</div>
         <div class="desc">${it.desc}</div>
         <div class="mods">
-          <span class="badge">🍃 ${it.cost}</span>
-          ${owned ? `<span class="badge">Куплено</span>` : ``}
+          ${price.length ?` <span class="badge">${price.join(" • ")}</span>` : ``}
+          ${status}
         </div>
         <div class="rActions" style="margin-top:10px;">
-          ${owned ? `<button type="button" disabled>Уже есть</button>` :
-            `<button type="button" data-buy="${it.id}" ${canBuy ? "" : "disabled"}>Купить</button>`}
+          <button type="button" data-buy="${it.id}" ${(!owned && !affordable) ? "disabled" : ""}>${btnText}</button>
         </div>
       </div>
     `;
     grid.appendChild(card);
   });
-
-  grid.querySelectorAll("button[data-buy]").forEach(b => {
-    b.addEventListener("click", () => buyDecor(b.dataset.buy));
+  grid.querySelectorAll("button[data-buy]").forEach(b=>{
+    b.onclick = () => buyOrEquip(b.dataset.buy);
   });
-}
-
-function buyDecor(id){
-  const it = DECOR_ITEMS.find(x => x.id === id);
-  if(!it) return;
-
-  if((state.inventory.leaves || 0) < it.cost) return;
-
-  state.inventory.leaves -= it.cost;
-  state.decor = state.decor || { lantern:false, fence:false };
-  state.decor[id] = true;
-
-  saveState(state);
-  render(state);
-  renderGround(state);
-  renderDecorShop();
 }
 
 function renderDecor(){
@@ -2757,12 +2909,6 @@ function heightMeters(level){
       const rot = (Math.random()*240 - 120).toFixed(0) + "deg";
       const dur = (6 + Math.random()*6).toFixed(2) + "s";
       const w = state.weather || "sun";
-let p = 0.35;                 // базовый шанс
-if(w === "wind") p = 0.55;
-if(w === "fog")  p = 0.55;    // туман тоже чаще
-if(w === "rain") p = 0.45;
-if(Math.random() < p) spawnLeaf();
-
       leaf.style.left = x + "%";
       leaf.style.setProperty("--dx", dx);
       leaf.style.setProperty("--rot", rot);
@@ -2778,6 +2924,40 @@ if(Math.random() < p) spawnLeaf();
   renderGround(state);
 }, 14000);
     }
+
+    // =========================
+// Контроль листопада (чтобы не было ада)
+// =========================
+const LEAF_FALL = {
+  intervalMs: 900,     // как часто "проверяем" спавн
+  maxOnScreen: 12,     // максимум листьев на экране одновременно
+  chance: {            // шанс на одну "проверку"
+    sun:  0.10,
+    rain: 0.13,
+    fog:  0.08,
+    wind: 0.18
+  }
+};
+
+let leafTimer = null;
+
+function startLeafFall(){
+  if(leafTimer) return;
+
+  leafTimer = setInterval(() => {
+    const scene = el("scene");
+    if(!scene) return;
+
+    // лимит, чтобы экран не превращался в салат
+    const onScreen = scene.querySelectorAll(".leaf").length;
+    if(onScreen >= LEAF_FALL.maxOnScreen) return;
+
+    const w = (state.weather || "sun");
+    const p = (LEAF_FALL.chance[w] ?? LEAF_FALL.chance.sun);
+
+    if(Math.random() < p) spawnLeaf();
+  }, LEAF_FALL.intervalMs);
+}
     
     function spawnDrop(){
   if((state.weather || "sun") !== "rain") return;
@@ -2942,10 +3122,12 @@ async function doPhoto(){
     // 8) Запуск
     // =========================
     function boot(){
+  
   ensureDailyToday(state);
   renderToday(state);
   bindQuiz();
   bindQuizImages();
+  startLeafFall();
   bindMainButtons();
   el("btnDailyClaim")?.addEventListener("click", claimDailyBag);
   el("btnPhoto")?.addEventListener("click", doPhoto);
