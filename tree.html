@@ -932,6 +932,30 @@ button{
   color: rgba(233,238,252,.95);
   font-size: 13px;
 }
+
+/* ===== Falling Leaf Sprite ===== */
+
+.leaf{
+  position:absolute;
+  width:28px;
+  height:28px;
+  pointer-events:none;
+  user-select:none;
+  will-change: transform, opacity;
+}
+
+.leaf img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  animation: leafSway 3.2s ease-in-out infinite;
+}
+
+@keyframes leafSway{
+  0%   { transform: rotate(-8deg) translateX(0px); }
+  50%  { transform: rotate(8deg)  translateX(6px); }
+  100% { transform: rotate(-8deg) translateX(0px); }
+}
     
   </style>
 </head>
@@ -2651,17 +2675,26 @@ function downloadDataUrl(dataUrl, filename){
   if(layer){
     layer.innerHTML = "";
     const show = Math.min(n, 14);
-    for(let i=0;i<show;i++){
-      const d = document.createElement("div");
-      d.textContent = "🍃";
-      d.style.position = "absolute";
-      d.style.left = (8 + Math.random()*84) + "%";
-      d.style.bottom = (2 + Math.random()*18) + "px";
-      d.style.opacity = "0.85";
-      d.style.transform = `rotate(${Math.random()*120-60}deg)`;
-      d.style.filter = "drop-shadow(0 6px 10px rgba(0,0,0,.18))";
-      layer.appendChild(d);
-    }
+   for(let i=0;i<show;i++){
+  const d = document.createElement("div");
+  d.style.position = "absolute";
+  d.style.left = (8 + Math.random()*84) + "%";
+  d.style.bottom = (2 + Math.random()*18) + "px";
+  d.style.opacity = "0.9";
+  d.style.transform = `rotate(${Math.random()*120-60}deg)`;
+  d.style.filter = "drop-shadow(0 6px 10px rgba(0,0,0,.18))";
+
+  const img = document.createElement("img");
+  img.src = "assets/fx/leaf.png";
+  img.alt = "";
+  img.style.width = "22px";
+  img.style.height = "22px";
+  img.style.display = "block";
+  img.style.opacity = "1";
+
+  d.appendChild(img);
+  layer.appendChild(d);
+}
   }
 }
 
@@ -3126,42 +3159,55 @@ function heightMeters(level){
     // 6) Частицы: листья
     // =========================
     function spawnLeaf(){
-      const scene = el("scene");
-      const leaf = document.createElement("div");
-      leaf.className = "leaf";
-      leaf.textContent = "🍃";
+  const scene = document.getElementById("scene");
+  if(!scene) return;
 
-      const x = Math.random() * 100; // %
-      const dx = (Math.random()*80 - 40).toFixed(0) + "px";
-      const rot = (Math.random()*240 - 120).toFixed(0) + "deg";
-      const dur = (6 + Math.random()*6).toFixed(2) + "s";
-      const w = state.weather || "sun";
-      leaf.style.left = x + "%";
-      leaf.style.setProperty("--dx", dx);
-      leaf.style.setProperty("--rot", rot);
-      leaf.style.animationDuration = dur;
+  const leaf = document.createElement("div");
+  leaf.className = "leaf";
+  leaf.style.animation = "none";
 
-      scene.appendChild(leaf);
-     setTimeout(() => {
-  leaf.remove();
+  const img = document.createElement("img");
+  img.src = "assets/fx/leaf.png";   // ← путь к картинке
+  img.alt = "";
 
-  // ✅ Не каждый лист = ресурс.
-  // Пусть только часть листьев реально "долетает" до земли как ресурс.
-  const w = state.weather || "sun";
-  const dropChance =
-    (w === "wind") ? 0.45 :
-    (w === "rain") ? 0.40 :
-    (w === "fog")  ? 0.25 :
-    0.30; // sun
+  leaf.appendChild(img);
 
-  if(Math.random() < dropChance){
-    state.groundLeaves = (state.groundLeaves || 0) + 1;
-    saveState(state);
-    render(state);
-    renderGround(state);
-  }
-}, 14000);
+  const startX = Math.random() * scene.clientWidth;
+  const drift  = (Math.random() * 60) - 30; // влево/вправо
+
+  leaf.style.left = startX + "px";
+  leaf.style.top  = "-40px";
+
+  scene.appendChild(leaf);
+
+  const fallDuration = 4500 + Math.random() * 2500;
+
+  leaf.animate([
+  { transform:`translate(0px, 0px) rotate(0deg)`, opacity:1.0 },
+  { transform:`translate(${drift}px, ${scene.clientHeight + 80}px) rotate(140deg)`, opacity:1.0 }
+], {
+  duration: fallDuration,
+  easing: "linear"
+});
+
+  // когда долетел → добавить лист на землю
+  setTimeout(() => {
+    leaf.remove();
+
+    const w = state.weather || "sun";
+    const dropChance =
+      (w === "wind") ? 0.50 :
+      (w === "rain") ? 0.45 :
+      (w === "fog")  ? 0.30 :
+      0.35;
+
+    if(Math.random() < dropChance){
+      state.groundLeaves = (state.groundLeaves || 0) + 1;
+      saveState(state);
+      renderGround(state);
     }
+  }, fallDuration);
+}
 
     // =========================
 // Контроль листопада (чтобы не было ада)
@@ -3431,19 +3477,19 @@ if(typeof state.weather === "string"){
   }, {passive:true});
 
   function tick(){
-    // сглаживание (чтобы не дёргалось)
-    curX += (targetX - curX) * 0.08;
-    curY += (targetY - curY) * 0.08;
+  curX += (targetX - curX) * 0.08;
+  curY += (targetY - curY) * 0.08;
 
-    // дрейф
-    driftT += 0.002;
-    const driftX = Math.sin(driftT) * 6;
-    const driftY = Math.cos(driftT * 0.8) * 4;
+  driftT += 0.002;
+  const driftX = Math.sin(driftT) * 6;
+  const driftY = Math.cos(driftT * 0.8) * 4;
 
-    bg.style.transform = `translate3d(${curX + driftX}px, ${curY + driftY}px, 0) scale(1.06)`;
+  const tx = Math.round(curX + driftX);
+  const ty = Math.round(curY + driftY);
+  bg.style.transform = `translate3d(${tx}px, ${ty}px, 0) scale(1.06)`;
 
-    requestAnimationFrame(tick);
-  }
+  requestAnimationFrame(tick);
+}
   tick();
 })();
 
