@@ -87,7 +87,7 @@
     .tree{
       position:absolute;
       left:50%;
-      top:54%;
+      top:58%;
       transform: translate(-50%, -50%);
       font-size: 110px;
       filter: drop-shadow(0 10px 18px rgba(0,0,0,.35));
@@ -100,7 +100,7 @@
     .glow{
       position:absolute;
       left:50%;
-      top:56%;
+      top:60%;
       width:180px;
       height:180px;
       transform: translate(-50%, -50%);
@@ -982,6 +982,50 @@ button{
   animation: pileBreath 4.8s ease-in-out infinite;
   transform-origin: center bottom;
 }
+
+/* ===== Bottom Soil Strip ===== */
+#soilLayer{
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  height:120px;
+  pointer-events:none;
+  /* Положишь сюда свою картинку земли */
+  background: url("assets/bg/soil_strip.png") center bottom / cover no-repeat;
+  /* чтобы верх земли мягко растворялся в фон */
+  mask-image: linear-gradient(to top, rgba(0,0,0,1), rgba(0,0,0,1) 65%, rgba(0,0,0,0));
+  -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,1), rgba(0,0,0,1) 65%, rgba(0,0,0,0));
+  opacity: .95;
+}
+
+/* ===== Height gauge: ruler вместо заливки ===== */
+#heightFill{ display:none !important; }
+
+#heightBig{
+  white-space: nowrap;
+}
+
+.hgBar{
+  position: relative;
+  width: 10px;
+  height: 260px;           /* можно менять */
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.18);
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(255,255,255,.55) 0px,
+      rgba(255,255,255,.55) 2px,
+      rgba(255,255,255,0)   2px,
+      rgba(255,255,255,0)   14px
+    );
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.15);
+}
+
+
+
+* { outline: 1px solid rgba(255,0,0,.2); } 
     
   </style>
 </head>
@@ -1237,12 +1281,16 @@ button{
   <div class="tree" id="tree">
   <div id="treeSway">
     <img id="treeImg" alt="" style="width:120px;height:120px;object-fit:contain;">
-    <button id="btnMeditate" class="meditateOrb" type="button" title="Meditation">☀️</button>
   </div>
 </div>
- <div id="dayNightLayer" class="layerFull"></div>
 
-  <div id="groundLayer" style="position:absolute; left:0; right:0; bottom:0; height:64px; pointer-events:none;"></div>
+<!-- НОВОЕ: земля снизу -->
+<div id="soilLayer"></div>
+
+<div id="dayNightLayer" class="layerFull"></div>
+
+<!-- groundLayer делаем выше, чтобы кучка листьев не обрезалась -->
+<div id="groundLayer" style="position:absolute; left:0; right:0; bottom:0; height:120px; pointer-events:none;"></div>
 
   <div id="groundCounter" style="position:absolute; left:44px; bottom:10px; padding:6px 10px; border-radius:999px; border:1px solid var(--line); background: rgba(0,0,0,.22); color: var(--text); font-size:12px; font-weight:800; display:none;">
     🍃 <span id="groundCount">0</span>
@@ -1251,6 +1299,10 @@ button{
   
   <!-- RIGHT ACTIONS (7-9 + 20) -->
 <div class="hudRight" id="hudRight">
+<button class="iconBtn" id="btnMeditate" type="button" title="Meditate">
+    <img src="icons/meditate.png" class="btnIcon" alt="">
+  </button>
+
   <button class="iconBtn" id="btnClean" type="button" title="Bugs">
     <img src="icons/bugs.png" class="btnIcon" alt="">
   </button>
