@@ -631,11 +631,11 @@
 
 #bgLayer{
   position:absolute;
-  inset:-40px;               /* запас, чтобы при сдвиге не было пустых краёв */
+  inset:-80px;               /* запас, чтобы при сдвиге не было пустых краёв */
   background-size: cover;
   background-position: center;
   background-repeat:no-repeat;
-  transform: translate3d(0,0,0) scale(1.06);
+  transform: translate3d(0,0,0) scale(1);
   transition: background-image .8s ease, filter .8s ease;
   will-change: transform;
   z-index: 0;
@@ -955,6 +955,32 @@ button{
   0%   { transform: rotate(-8deg) translateX(0px); }
   50%  { transform: rotate(8deg)  translateX(6px); }
   100% { transform: rotate(-8deg) translateX(0px); }
+}
+
+/* ===== Leaf pile on ground ===== */
+.leafPile{
+  position:absolute;
+  left:50%;
+  bottom:0;
+  transform: translateX(-50%);
+  width:130px;         /* можно потом подкрутить */
+  height:auto;
+  pointer-events:none;
+  filter: drop-shadow(0 10px 16px rgba(0,0,0,.25));
+  opacity: .95;
+}
+
+/* ===== Leaf pile breathing ===== */
+
+@keyframes pileBreath {
+  0%   { transform: translateX(-50%) scale(1); }
+  50%  { transform: translateX(-50%) scale(1.035); }
+  100% { transform: translateX(-50%) scale(1); }
+}
+
+.leafPile{
+  animation: pileBreath 4.8s ease-in-out infinite;
+  transform-origin: center bottom;
 }
     
   </style>
@@ -2654,48 +2680,30 @@ function downloadDataUrl(dataUrl, filename){
     
     function renderGround(s){
   const layer = document.getElementById("groundLayer");
-  const counter = document.getElementById("groundCounter");
-  const cntEl = document.getElementById("groundCount");
-  const btn = document.getElementById("btnCollect");
+  if(!layer) return;
 
-  const n = s.groundLeaves || 0;
+  layer.innerHTML = "";
 
-  // счётчик
-  if(counter && cntEl){
-    counter.style.display = n > 0 ? "" : "none";
-    cntEl.textContent = String(n);
+  const count = Number(s.groundLeaves || 0);
+
+  // если ничего нет — ничего не рисуем
+  if(count <= 0) return;
+
+  let src = "";
+  if(count <= 5){
+    src = "assets/fx/leaf_pile_small.png";
+  } else if(count <= 10){
+    src = "assets/fx/leaf_pile_medium.png";
+  } else {
+    src = "assets/fx/leaf_pile_big.png";
   }
-
-  // кнопка сбора
-  if(btn){
-    btn.style.display = "";
-  }
-
-  // "кучка" визуально: максимум 14 листиков, остальное только числом
-  if(layer){
-    layer.innerHTML = "";
-    const show = Math.min(n, 14);
-   for(let i=0;i<show;i++){
-  const d = document.createElement("div");
-  d.style.position = "absolute";
-  d.style.left = (8 + Math.random()*84) + "%";
-  d.style.bottom = (2 + Math.random()*18) + "px";
-  d.style.opacity = "0.9";
-  d.style.transform = `rotate(${Math.random()*120-60}deg)`;
-  d.style.filter = "drop-shadow(0 6px 10px rgba(0,0,0,.18))";
 
   const img = document.createElement("img");
-  img.src = "assets/fx/leaf.png";
+  img.className = "leafPile";
+  img.src = src;
   img.alt = "";
-  img.style.width = "22px";
-  img.style.height = "22px";
-  img.style.display = "block";
-  img.style.opacity = "1";
 
-  d.appendChild(img);
-  layer.appendChild(d);
-}
-  }
+  layer.appendChild(img);
 }
 
 function collectLeaves(){
@@ -3477,16 +3485,20 @@ if(typeof state.weather === "string"){
   }, {passive:true});
 
   function tick(){
-  curX += (targetX - curX) * 0.08;
-  curY += (targetY - curY) * 0.08;
+  // сглаживание
+  curX += (targetX - curX) * 0.10;
+  curY += (targetY - curY) * 0.10;
 
-  driftT += 0.002;
-  const driftX = Math.sin(driftT) * 6;
-  const driftY = Math.cos(driftT * 0.8) * 4;
+  // ❌ убираем дрейф: он главный виновник "старого ТВ"
+  const driftX = 0;
+  const driftY = 0;
 
+  // ✅ жёстко к целым пикселям
   const tx = Math.round(curX + driftX);
   const ty = Math.round(curY + driftY);
-  bg.style.transform = `translate3d(${tx}px, ${ty}px, 0) scale(1.06)`;
+
+  // ✅ и без лишнего масштаба (масштаб тоже даёт шиммер)
+  bg.style.transform = `translate3d(${tx}px, ${ty}px, 0) scale(1)`;
 
   requestAnimationFrame(tick);
 }
