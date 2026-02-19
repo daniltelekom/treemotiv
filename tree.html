@@ -383,22 +383,25 @@
   100%{ transform: translate(40px,-30px); opacity:0; }
 }
 
+/* ===== Height gauge: full left edge ===== */
 #heightGauge{
   position:absolute;
-  left:12px;
-  top:12px;
+  left:0;
+  top:0;
+  bottom:0;
+
+  width:28px;                 /* ширина “рейки” */
+  padding:8px 6px;            /* чуть воздуха */
+  border:0;
+  background: transparent;
+  border-radius:0;
+  backdrop-filter: none;
 
   display:flex;
   flex-direction:column;
   align-items:center;
   gap:8px;
 
-  width:auto;
-  padding:10px 10px 12px;
-  border:1px solid var(--line);
-  background: rgba(0,0,0,.18);
-  border-radius:14px;
-  backdrop-filter: blur(6px);
   pointer-events:none;
 }
 
@@ -408,9 +411,19 @@
   line-height:1;
 }
 
+#heightGauge .hgValue{
+  font-weight:900;
+  font-size:12px;
+  line-height:1;
+  padding:6px 6px;
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.22);
+}
+
 #heightGauge .hgBar{
   width:10px;
-  height:160px;
+  height:100%;                /* ВАЖНО: на всю высоту контейнера */
   background: rgba(255,255,255,.08);
   border-radius:999px;
   overflow:hidden;
@@ -548,9 +561,18 @@
 .pillBar{
   height:10px;
   border-radius:999px;
-  background: rgba(255,255,255,.08);
+  background: rgba(255,255,255,.10);
   overflow:hidden;
   margin-top:8px;
+}
+
+/* ВАЖНО: это сами “заливки” внутри полосок */
+.pillBar > div{
+  height:100%;
+  width:0%;
+  border-radius:999px;
+  background: rgba(255,255,255,.75);
+  transition: width .35s ease;
 }
 
 /* маленькие (16-18) */
@@ -631,11 +653,14 @@ button{
   gap:8px;
 }
 
+/* делаем иконку “почти во весь квадрат” */
+.iconBtn{ padding:2px; }           /* оставим красивую рамку/воздух */
 .btnIcon{
-  width:22px;
-  height:22px;
+  width:100%;
+  height:100%;
   object-fit:contain;
   pointer-events:none;
+  display:block;
 }
 
 #btnShop{ background: transparent; }
@@ -1169,28 +1194,28 @@ button{
 
   <div id="groundLayer" style="position:absolute; left:0; right:0; bottom:0; height:64px; pointer-events:none;"></div>
 
-  <div id="groundCounter" style="position:absolute; left:12px; bottom:10px; padding:6px 10px; border-radius:999px; border:1px solid var(--line); background: rgba(0,0,0,.22); color: var(--text); font-size:12px; font-weight:800; display:none;">
+  <div id="groundCounter" style="position:absolute; left:44px; bottom:10px; padding:6px 10px; border-radius:999px; border:1px solid var(--line); background: rgba(0,0,0,.22); color: var(--text); font-size:12px; font-weight:800; display:none;">
     🍃 <span id="groundCount">0</span>
   </div>
  <div id="decorLayer" class="layerFull"></div>
   
   <!-- RIGHT ACTIONS (7-9 + 20) -->
 <div class="hudRight" id="hudRight">
-  <button id="btnClean" type="button">
-  <img src="icons/bugs.png" class="btnIcon" alt="">
-</button>
-  <button id="btnWater" type="button">
-  <img src="icons/water.png" class="btnIcon" alt="">
-</button>
- <button id="btnCollect" type="button">
-  <img src="icons/leaves.png" class="btnIcon" alt="">
-</button>
- <button class="iconBtn" id="btnShop" type="button" title="Shop">
-  <img src="icons/shop.png" class="btnIcon" alt="">
-</button>
-<button class="iconBtn" id="btnPhoto" type="button" title="Photo" style="display:none;">
-  <span style="font-size:18px; line-height:1;">📸</span>
-</button>
+  <button class="iconBtn" id="btnClean" type="button" title="Bugs">
+    <img src="icons/bugs.png" class="btnIcon" alt="">
+  </button>
+
+  <button class="iconBtn" id="btnWater" type="button" title="Water">
+    <img src="icons/water.png" class="btnIcon" alt="">
+  </button>
+
+  <button class="iconBtn" id="btnCollect" type="button" title="Collect">
+    <img src="icons/leaves.png" class="btnIcon" alt="">
+  </button>
+
+  <button class="iconBtn" id="btnShop" type="button" title="Shop">
+    <img src="icons/shop.png" class="btnIcon" alt="">
+  </button>
 </div>
 </div>
       
@@ -1977,6 +2002,19 @@ const SHOP_ITEMS = [
   { id:"bg_mystic", tab:"bg", name:"Мистический лес", desc:"Чуть магии, но без кринжа.", cost:{ fruits:2 }, type:"bg",
     data:{ day:'assets/bg_day.png', night:'assets/bg_night.png' } },
 
+  {
+  id: "bg_japan_temple",
+  tab: "bg",
+  name: "Japanese Temple",
+  desc: "Calm Japanese landscape with a distant temple.",
+  cost: { leaves: 10 },
+  type: "bg",
+  data: {
+    day: "assets/bgsets/japan_temple_day.png",
+    night: "assets/bgsets/japan_temple_night.png"
+  }
+},
+
   // --- ДЕКОР (твой текущий) ---
   { id:"fence", tab:"decor", name:"Заборчик", desc:"Уют +10, смысла 0.", cost:{ leaves:80 }, type:"decor" },
   { id:"lantern", tab:"decor", name:"Фонарь", desc:"Ночью светится. Красиво.", cost:{ leaves:140 }, type:"decor" },
@@ -1987,6 +2025,8 @@ const SHOP_ITEMS = [
 
   // --- УЛУЧШЕНИЯ (за эссенцию) ---
   { id:"upgrade_compost", tab:"upg", name:"Компост", desc:"Чуть меньше расход воды (логика добавится позже).", cost:{ essence:5 }, type:"upg" },
+
+  
 ];
 
 function ensureShop(){
@@ -2575,9 +2615,12 @@ function downloadDataUrl(dataUrl, filename){
       return clamp(s.xp / need, 0, 1);
     }
 
-    function setBar(id, value01){
-      el(id).style.width = `${Math.round(clamp(value01,0,1)*100)}%`;
-    }
+    function setBar(id, v01){
+  const node = document.getElementById(id);
+  if(!node) return;
+  const pct = Math.max(0, Math.min(1, Number(v01) || 0)) * 100;
+  node.style.width = pct.toFixed(0) + "%";
+}
 
     function log(msg){
       el("log").textContent = msg || "";
