@@ -1206,7 +1206,42 @@ button{
   filter: drop-shadow(0 6px 10px rgba(0,0,0,.25));
 }
 
+/* ===== Meditation Overlay ===== */
+#medOverlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.55);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#medOverlay.hidden{ display:none; }
 
+#medOverlay .medBox{
+  width: min(420px, 88vw);
+  border-radius: 18px;
+  background: rgba(20,25,45,.75);
+  border: 1px solid rgba(255,255,255,.10);
+  padding: 18px 16px;
+  text-align: center;
+  backdrop-filter: blur(10px);
+}
+
+#medBig{
+  font-size: 72px;
+  font-weight: 900;
+  line-height: 1;
+  margin: 6px 0 10px;
+  color: #fff;
+  text-shadow: 0 10px 30px rgba(0,0,0,.35);
+}
+
+#medSmall{
+  font-size: 16px;
+  opacity: .9;
+  color: rgba(255,255,255,.92);
+}
 
     
   </style>
@@ -1545,6 +1580,14 @@ button{
   </div>
 </div>
 
+<!-- ===== Meditation Overlay (countdown + breathing) ===== -->
+<div id="medOverlay" class="hidden">
+  <div class="medBox">
+    <div id="medBig">5</div>
+    <div id="medSmall"></div>
+  </div>
+</div>
+
   <script>
       
     // ============================
@@ -1586,7 +1629,17 @@ const TEXTS = {
     chooseLang: "Select your language:",
     langEn: "English",
     langRu: "Русский",
-    ok: "Ok"
+    ok: "Ok",
+
+    med_title: "Meditation",
+med_text: "Close your eyes and listen. With every sound cue, inhale and exhale. Relax.",
+med_used_day: "You already meditated today (day).",
+med_used_night: "You already meditated today (night).",
+med_ready: "Get ready…",
+med_inhale: "Inhale",
+med_exhale: "Exhale",
+med_done: "Done."
+
   },
   ru: {
     morningTitle: "Доброе утро ☀️",
@@ -1615,11 +1668,23 @@ const TEXTS = {
       "Тихая темнота лечит.",
       "Спокойной ночи. Ты молодец."
     ],
+
+    
     growBtn: "Вырасти",
     chooseLang: "Выберите язык:",
     langEn: "English",
     langRu: "Русский",
-    ok: "Ок"
+    ok: "Ок",
+
+    med_title: "Медитация",
+med_text: "Закройте глаза и слушайте. Под каждый звуковой сигнал делайте вдох и выдох. Расслабьтесь.",
+med_used_day: "Сегодня днём медитация уже была.",
+med_used_night: "Сегодня ночью медитация уже была.",
+med_ready: "Готовься…",
+med_inhale: "Вдох",
+med_exhale: "Выдох",
+med_done: "Готово."
+
   }
 };
 
@@ -3820,44 +3885,42 @@ markDailyTask(state, "water");
       render(state);
     }
     
-    function doMeditate(){
+function doMeditate(){
   const s = state;
-  s.daily = s.daily || { lastMeditateDay:null, streak:0, total:0 };
 
-  const t = todayKey();
-  if(s.daily.lastMeditateDay === t){
-    log("Сегодня медитация уже была. Дерево довольно.");
+  // ночь/день: используем твою функцию
+  const night = isNightByLocalTime();
+  const keyToday = todayKeyLocal();
+
+  // храним отдельно для дня и ночи
+  if(!s.meditation) s.meditation = {};
+  const usedKey = night ? s.meditation.nightKey : s.meditation.dayKey;
+
+  if(usedKey === keyToday){
+    log(night ? t("med_used_night") : t("med_used_day"));
     return;
   }
 
-  // стрик (мягкий)
-  const y = yesterdayKey();
-  if(s.daily.lastMeditateDay === y) s.daily.streak += 1;
-  else s.daily.streak = 1;
+  // показываем модалку с текстом на выбранном языке
+showQuoteModalAction(
+  t("med_title"),
+  t("med_text"),
+  () => {
+    // отмечаем использование (после OK)
+    if(night) s.meditation.nightKey = keyToday;
+    else s.meditation.dayKey = keyToday;
 
-  s.daily.lastMeditateDay = t;
-  s.daily.total += 1;
+    // ✅ засчитываем ежедневное задание "медитация"
+    ensureDailyToday(s);
+    markDailyTask(s, "meditate");
 
-  // награда (простая, приятная)
-  const bonusLeaves = 8 + Math.min(12, s.daily.streak); // 9..20
-  s.inventory.leaves += bonusLeaves;
+    saveState(s);
+    render(s); // если у тебя render() без аргумента — просто напиши render();
 
-  // маленькая эссенция редко
-  if(Math.random() < 0.25) s.inventory.essence += 1;
-  if((s.weather || "sun") === "snow"){
-  s.inventory.essence += 1; // дополнительная эссенция
-}
-
-  // чуть восстанавливаем
-  s.health = clamp(s.health + 6, 0, 100);
-  s.pests = clamp(s.pests - 8, 0, 100);
-  
-  markDailyTask(s, "meditate");
-
-  saveState(s);
-  render(s);
-
-  log(`🕯 Медитация завершена. +${bonusLeaves} листьев. Стрик: ${s.daily.streak}`);
+    // запуск: отсчёт + 1 мин дыхания
+    runMeditation1Min();
+  }
+);
 }
 
 async function doPhoto(){
@@ -4280,7 +4343,7 @@ const NIGHT_QUOTES = [
 
 // 2) Утро/ночь по часам. Можно поменять.
 const MORNING_START = 5;   // 05:00
-const MORNING_END   = 12;  // до 11:59 (12 не включительно)
+const MORNING_END   = 15;  // до 14:59 (15 не включительно)
 const NIGHT_START   = 18;  // 18:00
 const NIGHT_END     = 4;   // до 03:59
 
@@ -4336,6 +4399,129 @@ function showQuoteModal(title, text){
 
   btn.addEventListener("click", close);
   modal.addEventListener("click", onBackdrop);
+}
+
+// ===== Modal with OK action (reuses quoteModal UI) =====
+function showQuoteModalAction(title, text, onOk){
+  const modal = document.getElementById("quoteModal");
+  const tt = document.getElementById("quoteTitle");
+  const xx = document.getElementById("quoteText");
+  const btn = document.getElementById("quoteBtn");
+  if(!modal || !tt || !xx || !btn) return;
+
+  tt.textContent = title;
+  xx.textContent = text;
+  modal.classList.remove("hidden");
+
+  const close = () => {
+    modal.classList.add("hidden");
+    btn.removeEventListener("click", ok);
+    modal.removeEventListener("click", onBackdrop);
+  };
+
+  const ok = () => {
+    close();
+    try{ onOk && onOk(); }catch(e){ console.error(e); }
+  };
+
+  const onBackdrop = (e) => {
+    if(e.target === modal) close();
+  };
+
+  btn.addEventListener("click", ok);
+  modal.addEventListener("click", onBackdrop);
+}
+
+// ===== Meditation: overlay + safe click sound (no files needed) =====
+let _medAudioCtx = null;
+function medClick(){
+  try{
+    if(!_medAudioCtx) _medAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = _medAudioCtx;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = "sine";
+    o.frequency.value = 880;     // тон клика, меняй
+    g.gain.value = 0.0001;
+
+    o.connect(g);
+    g.connect(ctx.destination);
+
+    const t = ctx.currentTime;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.18, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+
+    o.start(t);
+    o.stop(t + 0.07);
+  }catch(e){
+    // если браузер капризничает, просто молча игнорим
+  }
+}
+
+function showMedOverlay(bigText, smallText){
+  const ov = document.getElementById("medOverlay");
+  const b = document.getElementById("medBig");
+  const s = document.getElementById("medSmall");
+  if(!ov || !b || !s) return;
+  b.textContent = bigText;
+  s.textContent = smallText || "";
+  ov.classList.remove("hidden");
+}
+function hideMedOverlay(){
+  const ov = document.getElementById("medOverlay");
+  if(ov) ov.classList.add("hidden");
+}
+
+function runMeditation1Min(){
+  // 5..0 countdown, then 60 seconds breathing
+  const inhaleSec = 4;    // меняй: длительность вдоха
+  const exhaleSec = 4;    // меняй: длительность выдоха
+  const totalSec = 60;
+
+  let n = 5;
+  showMedOverlay(String(n), t("med_ready"));
+  medClick();
+
+  const cd = setInterval(() => {
+    n -= 1;
+    if(n >= 0){
+      showMedOverlay(String(n), t("med_ready"));
+      medClick();
+      return;
+    }
+    clearInterval(cd);
+
+    // breathing phase
+    let left = totalSec;
+    let phase = "inhale";
+    let phaseLeft = inhaleSec;
+
+    showMedOverlay(String(left), `${t("med_inhale")} (${phaseLeft})`);
+    medClick();
+
+    const tick = setInterval(() => {
+      left -= 1;
+      phaseLeft -= 1;
+
+      if(left <= 0){
+        clearInterval(tick);
+        hideMedOverlay();
+        log(t("med_done"));
+        return;
+      }
+
+      if(phaseLeft <= 0){
+        phase = (phase === "inhale") ? "exhale" : "inhale";
+        phaseLeft = (phase === "inhale") ? inhaleSec : exhaleSec;
+        medClick();
+      }
+
+      const label = (phase === "inhale") ? t("med_inhale") : t("med_exhale");
+      showMedOverlay(String(left), `${label} (${phaseLeft})`);
+    }, 1000);
+
+  }, 1000);
 }
 
 function showRewardModal(text){
