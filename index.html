@@ -383,6 +383,50 @@
   100%{ transform: translate(40px,-30px); opacity:0; }
 }
 
+/* ===== DECOR IMAGES (fence + lantern) ===== */
+
+#decorLayer{ pointer-events:none; }
+
+/* Забор (позиция как у тебя на красной "1") */
+.decorFenceImg{
+  position:absolute;
+  left:6%;
+  bottom:8%;
+
+  width:220px;        /* ← фиксированный размер */
+  max-width:55vw;     /* ← НИКОГДА не больше половины экрана */
+  height:auto;
+
+  opacity:.95;
+  filter: drop-shadow(0 10px 14px rgba(0,0,0,.25));
+}
+
+/* Фонарь (позиция как у тебя на красной "2") */
+.decorLanternImg{
+  position:absolute;
+  right:60px;              /* между деревом и кнопками справа */
+  bottom:6%;
+  height:clamp(150px, 30vh, 280px);
+  width:auto;
+  opacity:.98;
+  filter: drop-shadow(0 10px 14px rgba(0,0,0,.28));
+}
+
+/* лёгкое свечение фонаря ночью */
+.decorLanternGlow{
+  position:absolute;
+  right:72px;
+  bottom:4%;
+  width:180px;
+  height:180px;
+  border-radius:999px;
+  background: radial-gradient(circle, rgba(255,214,120,.22), transparent 60%);
+  filter: blur(1px);
+  opacity: 0;
+}
+
+/* показываем glow только ночью через inline style в JS (см. ниже) */
+
 /* ===== Height gauge: линейка-картинка слева (тянется по высоте) ===== */
 
 /* контейнер линейки */
@@ -620,14 +664,16 @@
 
 #bgLayer{
   position:absolute;
-  inset:-80px;               /* запас, чтобы при сдвиге не было пустых краёв */
-  background-size: 80% auto;
-  background-position: center;
+  inset:0;
+  background-position:center;
   background-repeat:no-repeat;
-  transform: translate3d(0,0,0) scale(1);
-  transition: background-image .8s ease, filter .8s ease;
+  background-size:cover;
+
+  /* ВОТ ЭТО ГЛАВНОЕ */
+   transform: translate3d(0,0,0) scale(1.14);
+  transform-origin:center;
   will-change: transform;
-  z-index: 0;
+  backface-visibility: hidden;
 }
 
 /* чтобы всё остальное было поверх фона */
@@ -1870,28 +1916,36 @@ function setupParallax(){
   let tx = 0, ty = 0; // target (-1..1)
   let x = 0, y = 0;   // current
   let raf = 0;
+  let sx = 0, sy = 0; // сглаженные значения
 
-  function apply(){
-    raf = 0;
+function apply(){
+  raf = 0;
 
-    // сглаживание
-    x += (tx - x) * 0.18;
-    y += (ty - y) * 0.18;
+  // инерция: чем меньше число, тем плавнее (0.08–0.18)
+  const k = 0.10;
 
-    // слои (у большинства нет базового translate)
-    if(weather) weather.style.transform = `translate(${x*14}px, ${y*14}px)`;
-    if(night)   night.style.transform   = `translate(${x*6}px,  ${y*6}px)`;
-    if(ground)  ground.style.transform  = `translate(${x*4}px,  ${y*2}px)`;
-    if(decor)   decor.style.transform   = `translate(${x*8}px,  ${y*5}px)`;
+  // догоняем цель
+  sx += (tx - sx) * k;
+  sy += (ty - sy) * k;
 
-    // ВАЖНО: glow и tree центрируются через translate(-50%, -50%) — его нельзя терять
-    if(glow) glow.style.transform = `translate(-50%, -50%) translate(${x*10}px, ${y*10}px)`;
-    if(tree) tree.style.transform = `translate(-50%, -50%) translate(${x*3}px,  ${y*2}px)`;
+  const x = (sx * 7).toFixed(2);
+  const y = (sy * 4).toFixed(2);
 
-    if(Math.abs(tx-x) > 0.002 || Math.abs(ty-y) > 0.002){
-      raf = requestAnimationFrame(apply);
-    }
+  const bg = document.getElementById("bgLayer");
+  if(bg){
+    bg.style.transform = `translate3d(${x}px, ${y}px, 0) scale(1.08)`;
   }
+
+  const bgFx = document.getElementById("bgFxLayer");
+  if(bgFx){
+    bgFx.style.transform = `translate3d(${(sx * 12).toFixed(2)}px, ${(sy * 7.2).toFixed(2)}px, 0)`;
+  }
+
+  // продолжаем анимацию пока не почти на месте
+  if(Math.abs(tx - sx) > 0.001 || Math.abs(ty - sy) > 0.001){
+    raf = requestAnimationFrame(apply);
+  }
+}
 
   function setTargetFromEvent(e){
     const r = scene.getBoundingClientRect();
@@ -2438,7 +2492,7 @@ const SHOP_TABS = [
 // Примеры. Поменяешь цены/описания как захочешь.
 const SHOP_ITEMS = [
   // --- ФОНЫ ---
-  { id:"bg_mystic", tab:"bg", name:"Мистический лес", desc:"Чуть магии, но без кринжа.", cost:{ fruits:2 }, type:"bg",
+  { id:"bg_mystic", tab:"bg", name:"Мистический лес", desc:"Чуть магии.", cost:{ fruits:2 }, type:"bg",
     data:{ day:'assets/bg_day.png', night:'assets/bg_night.png' } },
 
   {
@@ -2459,7 +2513,7 @@ const SHOP_ITEMS = [
 
   // --- ДЕКОР (твой текущий) ---
   { id:"fence", tab:"decor", name:"Заборчик", desc:"Уют +10, смысла 0.", cost:{ leaves:80 }, type:"decor" },
-  { id:"lantern", tab:"decor", name:"Фонарь", desc:"Ночью светится. Красиво.", cost:{ leaves:140 }, type:"decor" },
+  { id:"lantern", tab:"decor", name:"Фонарь", desc:"Ночью светится. Красиво.", cost:{ leaves:40 }, type:"decor" },
 
   // --- ЭФФЕКТЫ ---
   { id:"fireflies", tab:"fx", name:"Светлячки", desc:"Появляются ночью на фоне.", cost:{ fruits:3 }, type:"fx" },
@@ -3669,39 +3723,46 @@ function priceLine(amount, iconSrc, alt){
 function renderDecor(){
   const layer = el("decorLayer");
   if(!layer) return;
+
+  // чистим слой (оставляем только декор)
   layer.innerHTML = "";
 
   const night = isNightByLocalTime();
 
+  // ===== ЗАБОР-КАРТИНКА (позиция "1" как на твоём скрине) =====
   if(state.decor?.fence){
-    const f = document.createElement("div");
-    f.textContent = "🪵🪵🪵🪵🪵";
-    f.style.position="absolute";
-    f.style.left="14px";
-    f.style.bottom="44px";
-    f.style.opacity=".7";
+    const f = document.createElement("img");
+    f.className = "decorFenceImg";
+    f.src = "assets/decor/fence.png";
+    f.alt = "fence";
+
+    // если хочешь точнее подогнать "столб на ствол":
+    // f.style.left = "6%";            // двигай левее/правее
+    // f.style.width = "420px";        // делай больше/меньше
+    // f.style.bottom = "11%";         // выше/ниже
+
     layer.appendChild(f);
   }
 
+  // ===== ФОНАРЬ-КАРТИНКА (позиция "2" между деревом и кнопками) =====
   if(state.decor?.lantern){
-    const l = document.createElement("div");
-    l.textContent = "🏮";
-    l.style.position="absolute";
-    l.style.right="18px";
-    l.style.bottom="72px";
-    l.style.fontSize="26px";
+    const l = document.createElement("img");
+    l.className = "decorLanternImg";
+    l.src = "assets/decor/lantern.png";
+    l.alt = "lantern";
+
+    // если надо двигать:
+    // l.style.right = "92px";         // ближе/дальше от кнопок
+    // l.style.bottom = "6%";          // выше/ниже
+    // l.style.height = "240px";       // больше/меньше
+
     layer.appendChild(l);
 
+    // glow ночью
     if(night){
       const glow = document.createElement("div");
-      glow.style.position="absolute";
-      glow.style.right="10px";
-      glow.style.bottom="58px";
-      glow.style.width="120px";
-      glow.style.height="120px";
-      glow.style.borderRadius="999px";
-      glow.style.background="radial-gradient(circle, rgba(255,204,102,.22), transparent 60%)";
-      glow.style.filter="blur(1px)";
+      glow.className = "decorLanternGlow";
+      glow.style.opacity = "1";
       layer.appendChild(glow);
     }
   }
