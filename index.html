@@ -787,33 +787,24 @@ button{
 .weatherFX.weather-snow .fx-snow{ opacity:1; }
 .weatherFX.weather-sun  .fx-sun { opacity:1; }
 
-/* ---------- RAIN ---------- */
-.fx-rain::before,
-.fx-rain::after{
-  content:"";
-  position:absolute;
-  inset:-40% -20%;
-  background-image: repeating-linear-gradient(
-    115deg,
-    rgba(255,255,255,.22) 0px,
-    rgba(255,255,255,.22) 1px,
-    rgba(255,255,255,0) 2px,
-    rgba(255,255,255,0) 12px
-  );
-  filter: blur(.2px);
-  transform: translateY(-30%);
-  animation: rainFall 900ms linear infinite;
+/* ---------- RAIN (мягкий, без "TV noise") ---------- */
+.fx-rain{
+  opacity:.28;                 /* было слишком жирно */
+  filter: blur(1.2px);         /* мягче */
+  background-image:
+    repeating-linear-gradient(110deg,
+      rgba(255,255,255,.18) 0px,
+      rgba(255,255,255,.18) 2px,
+      rgba(255,255,255,0) 7px,
+      rgba(255,255,255,0) 18px
+    );
+  background-size: 28px 58px;  /* крупнее = меньше “помех” */
+  animation: rainMove 5200ms linear infinite; /* медленнее */
 }
 
-.fx-rain::after{
-  opacity:.6;
-  filter: blur(.6px);
-  animation-duration: 1200ms;
-  transform: translateY(-40%);
-}
-
-@keyframes rainFall{
-  to{ transform: translateY(30%); }
+@keyframes rainMove{
+  from { background-position: 0 0; }
+  to   { background-position: 0 180px; }
 }
 
 /* ---------- SNOW ---------- */
@@ -1318,6 +1309,91 @@ button{
   100% { transform: translate3d(0,0,0); }
 }
 
+#creditsOverlay{
+  position:fixed;
+  inset:0;
+  background: rgba(0,0,0,.55);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:10050;
+  padding:16px;
+}
+#creditsOverlay.hidden{ display:none; }
+
+header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.hdrActions{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+
+.overlay{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(0,0,0,.55);
+  z-index:9999;
+}
+.hidden{ display:none !important; }
+
+.modal{
+  width:min(520px, calc(100vw - 24px));
+  background:rgba(20,28,55,.92);
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:16px;
+  padding:14px 14px 12px;
+  box-shadow:0 18px 55px rgba(0,0,0,.45);
+}
+.modalTitle{
+  font-weight:800;
+  font-size:16px;
+  margin-bottom:8px;
+}
+.modalText{
+  font-size:13px;
+  line-height:1.4;
+  opacity:.92;
+  white-space:pre-line;
+}
+.modalActions{
+  display:flex;
+  justify-content:flex-end;
+  margin-top:10px;
+}
+
+#screenRain{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  z-index:8; /* выше фона и дождя, но ниже UI-кнопок */
+  opacity:.0;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(255,255,255,.20) 0 2px, transparent 3px),
+    radial-gradient(circle at 70% 20%, rgba(255,255,255,.16) 0 2px, transparent 3px),
+    radial-gradient(circle at 40% 70%, rgba(255,255,255,.14) 0 2px, transparent 3px),
+    radial-gradient(circle at 85% 75%, rgba(255,255,255,.18) 0 2px, transparent 3px);
+  filter: blur(.2px);
+}
+
+#screenRain.on{
+  opacity:.22;
+  animation: screenDrops 6.5s ease-in-out infinite;
+}
+
+@keyframes screenDrops{
+  0%   { transform: translate3d(0,0,0); }
+  50%  { transform: translate3d(0,10px,0); }
+  100% { transform: translate3d(0,0,0); }
+}
+
     
   </style>
 </head>
@@ -1327,12 +1403,13 @@ button{
 
 
   <div class="app">
-    <header>
-      <div>
-        <div class="title">🌳 Дух Дерева (MVP)</div>
-      </div>
-      <button class="btnDanger" id="btnReset" type="button">Сброс</button>
-    </header>
+   <header>
+  <div class="title">🌿 Дух Дерева (MVP)</div>
+  <div class="hdrActions">
+  <button id="creditsBtn" class="btn small" type="button" title="Credits">©</button>
+  <button id="musicBtn" class="btn small" type="button" title="Music">🔇</button>
+</div>
+</header>
 
     <div class="wrap">
 
@@ -1561,6 +1638,7 @@ button{
 
   <div id="soilLayer"></div>
   <div id="weatherLayer" class="layerFull"></div>
+  <div id="screenRain" class="layerFull hidden"></div>
   <div id="dropsLayer"></div>
   <div id="frostOverlay"></div>
   <div id="heightGauge">
@@ -1714,7 +1792,12 @@ med_used_night: "You already meditated today (night).",
 med_ready: "Get ready…",
 med_inhale: "Inhale",
 med_exhale: "Exhale",
-med_done: "Done."
+med_done: "Done.",
+
+music_on: "Music: ON",
+music_off: "Music: OFF",
+creditsMusicTitle: "Music",
+creditsMusicText: "Track: «Muted Warning» — jaspertine. Licensed: CC BY 4.0. Source: https://ccmixter.org/files/jaspertine/70612",
 
   },
   ru: {
@@ -1759,7 +1842,12 @@ med_used_night: "Сегодня ночью медитация уже была.",
 med_ready: "Готовься…",
 med_inhale: "Вдох",
 med_exhale: "Выдох",
-med_done: "Готово."
+med_done: "Готово.",
+
+music_on: "Музыка: ВКЛ",
+music_off: "Музыка: ВЫКЛ",
+creditsMusicTitle: "Музыка",
+creditsMusicText: "Трек: «Muted Warning» — jaspertine. Лицензия: CC BY 4.0. Источник: https://ccmixter.org/files/jaspertine/70612",
 
   }
 };
@@ -2755,6 +2843,20 @@ function setWeatherText(text){
   if(t) t.textContent = text;
 }
 
+function startScreenRain(){
+  const el = document.getElementById("screenRain");
+  if(!el) return;
+  el.classList.remove("hidden");
+  el.classList.add("on");
+}
+
+function stopScreenRain(){
+  const el = document.getElementById("screenRain");
+  if(!el) return;
+  el.classList.remove("on");
+  el.classList.add("hidden");
+}
+
 function getBrowserLocation(){
   return new Promise((resolve, reject) => {
     if(!navigator.geolocation) return reject(new Error("no geolocation"));
@@ -2839,6 +2941,10 @@ function setWeatherFx(fx){
 
   el.classList.remove("weather-none","weather-rain","weather-snow","weather-sun");
   el.classList.add("weather-" + fx);
+
+  // капли на “экране” только при дожде
+  if(fx === "rain") startScreenRain();
+  else stopScreenRain();
 }
 
 // Модификатор: влияет на “скорость роста” (ты сам решишь насколько жестко)
@@ -4105,6 +4211,7 @@ async function doPhoto(){
     // =========================
     // 8) Запуск
     // =========================
+
     function boot(){
 
       // show language choice if not chosen
@@ -4114,6 +4221,8 @@ if(!getLang()){
   // если уже есть язык — всё как обычно
   maybeShowDailyQuote(); // чтобы цитаты были локализованы
 }
+initMusic();
+setupCredits();
   
   ensureDailyToday(state);
   renderToday(state);
@@ -4266,6 +4375,34 @@ function renderBuffLine(s){
   } else {
     elLine.style.display = "none";
   }
+}
+
+function setupCredits(){
+  const btn = document.getElementById("creditsBtn");
+  const overlay = document.getElementById("creditsOverlay");
+  const close = document.getElementById("creditsClose");
+
+  if(!btn || !overlay || !close) return;
+
+  function openCredits(){
+    // подписи по языку
+    btn.textContent = t("credits_btn") || "© Credits";
+    document.getElementById("creditsTitle").textContent = t("credits_title") || "Credits";
+    document.getElementById("creditsText").textContent = t("credits_text") || "";
+    overlay.classList.remove("hidden");
+  }
+
+  function closeCredits(){
+    overlay.classList.add("hidden");
+  }
+
+  btn.addEventListener("click", openCredits);
+  close.addEventListener("click", closeCredits);
+
+  // клик по фону закрывает
+  overlay.addEventListener("click", (e) => {
+    if(e.target === overlay) closeCredits();
+  });
 }
 
 function growthInfo(level){
@@ -4737,9 +4874,143 @@ function renderResultOptions(treeIds){
 });
   });
 }
-    
 
-    boot();
+    // ===== MUSIC SYSTEM =====
+function ensureSettings(){
+  if(!state.settings) state.settings = {};
+  if(typeof state.settings.musicOn !== "boolean")
+    state.settings.musicOn = false;
+  if(typeof state.settings.musicVolume !== "number")
+    state.settings.musicVolume = 0.35;
+}
+
+function updateMusicUI(){
+  const btn = document.getElementById("musicBtn");
+  if(!btn) return;
+
+  if(state.settings.musicOn){
+    btn.textContent = "🎵 Музыка: ВКЛ";
+  }else{
+    btn.textContent = "🔇 Музыка: ВЫКЛ";
+  }
+}
+
+function applyMusic(){
+  const audio = document.getElementById("bgm");
+  if(!audio) return;
+
+  audio.volume = state.settings.musicVolume;
+
+  if(state.settings.musicOn){
+    audio.play().catch(()=>{});
+  }else{
+    audio.pause();
+  }
+}
+
+function initMusic(){
+  ensureSettings();
+
+  const btn = document.getElementById("musicBtn");
+  const audio = document.getElementById("bgm");
+  if(!btn || !audio) return;
+
+  audio.volume = state.settings.musicVolume;
+
+  // 🔴 ПРИНУДИТЕЛЬНО выключаем при старте
+  audio.pause();
+  state.settings.musicOn = false;
+  saveState(state);
+
+  updateMusicUI();
+
+  btn.onclick = () => {
+    state.settings.musicOn = !state.settings.musicOn;
+    saveState(state);
+
+    if(state.settings.musicOn){
+      audio.play().catch(()=>{});
+    }else{
+      audio.pause();
+    }
+
+    updateMusicUI();
+  };
+}
+
+function initCredits(){
+  const btn = document.getElementById("creditsBtn");
+  const overlay = document.getElementById("creditsOverlay");
+  const title = document.getElementById("creditsTitle");
+  const text = document.getElementById("creditsText");
+  const close = document.getElementById("creditsClose");
+
+  if(!btn || !overlay || !title || !text || !close) return;
+
+  function fillCredits(){
+    // если у тебя есть state.lang = "ru"/"en" (часто так и есть)
+    const lang = (state && state.lang) ? state.lang : "ru";
+
+    if(lang === "ru"){
+      title.textContent = "Авторы";
+      text.textContent =
+        "Музыка: jaspertine — “Pink Lemonade”\n" +
+        "Лицензия: Creative Commons Attribution 4.0 (CC BY 4.0)\n" +
+        "Источник: ccmixter.org/files/jaspertine/70612,";
+    }else{
+      title.textContent = "Credits";
+      text.textContent =
+        "Music: jaspertine — “Pink Lemonade”\n" +
+        "License: Creative Commons Attribution 4.0 (CC BY 4.0)\n" +
+        "Source: ccmixter.org/files/jaspertine/70612,";
+    }
+  }
+
+  function open(){
+    fillCredits();
+    overlay.classList.remove("hidden");
+  }
+  function hide(){
+    overlay.classList.add("hidden");
+  }
+
+  btn.addEventListener("click", open);
+  close.addEventListener("click", hide);
+
+  // клик по тёмному фону закрывает
+  overlay.addEventListener("click", (e) => {
+    if(e.target === overlay) hide();
+  });
+}
+
+   // boot();//
   </script>
+<!-- ===== CREDITS MODAL ===== -->
+<div id="creditsOverlay" class="overlay hidden">
+  <div class="modal">
+    <div class="modalTitle" id="creditsTitle">Credits</div>
+    <div class="modalText" id="creditsText"></div>
+    <div class="modalActions">
+      <button id="creditsClose" class="btn">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== BACKGROUND MUSIC ===== -->
+<audio id="bgm"
+       src="assets/audio/jaspertine_-_Muted_Warning_9.mp3"
+       preload="auto"
+       loop
+       playsinline></audio>
+
+<script>
+  // Запуск ПОСЛЕ того, как уже есть #musicBtn, #creditsBtn, #bgm, #creditsOverlay
+  boot();
+
+  // На всякий случай: если boot() не вызывает initMusic(), то вызовем вручную.
+  if (typeof initMusic === "function") initMusic();
+  if (typeof initCredits === "function") initCredits();
+</script>
+
 </body>
 </html>
