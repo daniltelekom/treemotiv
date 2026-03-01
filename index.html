@@ -3431,7 +3431,10 @@ if(glow){
   if(ht) ht.textContent = `${Math.round(s.health)}`;
 
   const pt = el("pestsText");
-  if(pt) pt.textContent = `${Math.round(s.pests)}`;
+if(pt){
+  const pestsVal = Number(s?.pests || 0);
+  pt.textContent = pestsVal > 0 ? Math.max(1, Math.ceil(pestsVal)) : 0;
+}
 
   // бары (если setBar у тебя принимает 0..1)
   if(typeof setBar === "function"){
@@ -4782,8 +4785,8 @@ function hideMedOverlay(){
 function runMeditation1Min(){
   // 5..0 countdown, then 60 seconds breathing
   const inhaleSec = 4;    // меняй: длительность вдоха
-  const exhaleSec = 4;    // меняй: длительность выдоха
-  const totalSec = 60;
+  const exhaleSec = 6;    // меняй: длительность выдоха
+  const totalSec = 100;
 
   let n = 5;
   showMedOverlay(String(n), t("med_ready"));
