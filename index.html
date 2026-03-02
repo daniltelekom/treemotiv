@@ -1562,13 +1562,6 @@ header{
       <div class="pillBar"><div id="xpBar"></div></div>
     </div>
 
-    <!-- 2 HP -->
-    <div class="pill">
-      <div class="pillK">HP</div>
-      <div class="pillV" id="healthText">—</div>
-      <div class="pillBar"><div id="healthBar"></div></div>
-    </div>
-
     <!-- 3 Bugs -->
     <div class="pill">
       <div class="pillK">Bugs</div>
@@ -2507,18 +2500,18 @@ const TREES = {
     name: "Дуб",
     icon: "🌳",
     img: IMG.oak,
-    imgsByLevel: [
-  "assets/trees/oak/oak_00_seed.png",         // lvl 0
-  "assets/trees/oak/oak_01_cracked.png",      // lvl 1
-  "assets/trees/oak/oak_02_germination.png",  // lvl 2
-  "assets/trees/oak/oak_03_sprout1.png",      // lvl 3
-  "assets/trees/oak/oak_04_sprout2.png",      // lvl 4
-  "assets/trees/oak/oak_05_sprout3.png",      // lvl 5
-  "assets/trees/oak/oak_06_young1.png",       // lvl 6
-  "assets/trees/oak/oak_07_young2.png",       // lvl 7
-  "assets/trees/oak/oak_08_young3.png",       // lvl 8
-  "assets/trees/oak/oak_09_adult1.png",       // lvl 9
-  "assets/trees/oak/oak_10_adult2.png"        // lvl 10
+   imgsByLevel: [
+  "assets/trees/oak/seed_1.png",         // lvl 0
+  "assets/trees/oak/seed_2.png",      // lvl 1
+  "assets/trees/oak/seed_3.png",  // lvl 2
+  "assets/trees/oak/seed_4.png",      // lvl 3
+  "assets/trees/oak/seed_5.png",      // lvl 4
+  "assets/trees/oak/seed_6.png",      // lvl 5
+  "assets/trees/oak/seed_7.png",       // lvl 6
+  "assets/trees/oak/seed_8.png",       // lvl 7
+  "assets/trees/oak/seed_9.png",       // lvl 8
+  "assets/trees/oak/seed_10.png",       // lvl 9
+  "assets/trees/oak/seed_11.png"        // lvl 10
 ],
     desc: "Стабильный страж. Живучий, но растёт чуть медленнее.",
     mods: { xpMul: 0.90, waterDecayMul: 0.95, pestsMul: 0.85, nightXpMul: 1.00 }
@@ -2639,7 +2632,7 @@ const SHOP_ITEMS = [
   data:{ day:'assets/bgsets/meadow_day.png', night:'assets/bgsets/meadow_night.png', fx:"meadow" } },
 
   // --- ДЕКОР (твой текущий) ---
-  { id:"fence", tab:"decor", name:"Заборчик", desc:"Уют +10, смысла 0.", cost:{ leaves:80 }, type:"decor" },
+ 
   { id:"lantern", tab:"decor", name:"Фонарь", desc:"Ночью светится. Красиво.", cost:{ leaves:40 }, type:"decor" },
 
   // --- ЭФФЕКТЫ ---
@@ -2762,7 +2755,6 @@ function pickTreeFromAnswers(ans){
     stage: 0,
     xp: 0,
     water: 70,
-    health: 95,
     pests: 0,
     lastTick: nowMs(),
     growthLevel: 0,
@@ -2820,6 +2812,9 @@ const WEATHER_REFRESH_MS = 10 * 60 * 1000; // 10 минут
 const DEFAULT_CITY = { name: "Amsterdam", lat: 52.3676, lon: 4.9041 };
 
 function wEl(id){ return document.getElementById(id); }
+
+// ✅ чтобы старый код (el("id")) не падал
+function el(id){ return document.getElementById(id); }
 
 function weatherCodeToEmoji(code){
   // У Open-Meteo есть “weathercode” (WMO). Грубо маппим в эмодзи.
@@ -3016,8 +3011,8 @@ const night = isNightByLocalTime();
 
       // ---- настройки баланса
       const waterDecayPerHour = 2.0;     // 48/сутки
-      const pestsGrowthPerHour = 0.6;    // когда плохо
-      const pestsRecoverPerHour = 0.3;   // когда хорошо
+      const pestsGrowthPerHour = 0.18;   // было 0.6 — слишком быстро
+      const pestsRecoverPerHour = 0.35;  // быстрее уходит, когда всё ок
       const healthDecayPerHour = 0.8;    // только при жести
       const healthRecoverPerHour = 0.2;  // мягкое восстановление
       const baseXpPerHour = 10;          // рост в идеале
@@ -3028,32 +3023,34 @@ const night = isNightByLocalTime();
   0, 100
 );
 
-      // 2) вредители: растут при плохих условиях
-     // 2) вредители: растут при плохих условиях
-    const badWater = (s.water < 25 || s.water > 95);
+// 2) вредители: растут при плохих условиях
+const badWater = (s.water < 25);
 
-// w УЖЕ объявлен выше в tickTree, второй раз его НЕ объявляем
-    const fogPestsMul = (w === "fog") ? 1.25 : 1.0;
+// "защита" после чистки
+const shield = (s.pestsShieldUntil || 0) > tNow;
 
-    if(badWater){
-      s.pests = clamp(
-      s.pests + pestsGrowthPerHour * fogPestsMul * weatherPestsMul * dtHours,
-       0, 100
+// fog множитель (у тебя уже было)
+const fogPestsMul = (w === "fog") ? 1.25 : 1.0;
+
+if(shield){
+  // пока защита активна — жуки только уменьшаются
+  s.pests = clamp(
+    s.pests - 0.9 * dtHours,
+    0, 100
   );
-   }else{
-     s.pests = clamp(
-     s.pests - pestsRecoverPerHour * (2 - fogPestsMul) * dtHours,
-       0, 100
+}else if(badWater){
+  s.pests = clamp(
+    s.pests + pestsGrowthPerHour * fogPestsMul * weatherPestsMul * dtHours,
+    0, 100
+  );
+}else{
+  s.pests = clamp(
+    s.pests - pestsRecoverPerHour * (2 - fogPestsMul) * dtHours,
+    0, 100
   );
 }
-
-      // 3) здоровье: падает только если реально плохо
-      const veryBad = (s.water < 15 || s.pests > 70);
-      if(veryBad){
-        s.health = clamp(s.health - healthDecayPerHour * healthBadDecayMul * dtHours, 0, 100);
-      }else{
-        s.health = clamp(s.health + healthRecoverPerHour * healthRecoverMul * dtHours, 0, 100);
-      }
+// 3) HP УБРАЛИ — больше не считаем здоровье
+const healthFactor = 1.0;
 
       // 4) факторы роста
       let waterFactor = 1.0;
@@ -3063,8 +3060,6 @@ const night = isNightByLocalTime();
 
       let pestFactor = 1 - (s.pests / 120);
       pestFactor = clamp(pestFactor, 0.2, 1.0);
-
-      const healthFactor = clamp(s.health / 100, 0, 1);
 
       // 5) начисляем XP
       const buffActive = (s.growthBuffUntil || 0) > tNow;
@@ -3094,12 +3089,12 @@ if(newLevel > s.growthLevel){
       // 7) ап стадий (может апнуться несколько раз
 s.lastTick = tNow;
 return { dtHours, msg: "" };
-}
 
     // =========================
     // 5) UI
     // =========================
     const el = (id) => document.getElementById(id);
+}
 
     function stageLabel(s){
   const lvl = s.growthLevel || 0;
@@ -3435,19 +3430,16 @@ if(glow){
   const wt = el("waterText");
   if(wt) wt.textContent = `${Math.round(s.water)}/100`;
 
-  const ht = el("healthText");
-  if(ht) ht.textContent = `${Math.round(s.health)}`;
-
   const pt = el("pestsText");
 if(pt){
   const pestsVal = Number(s?.pests || 0);
-  pt.textContent = pestsVal > 0 ? Math.max(1, Math.ceil(pestsVal)) : 0;
+  // показываем "1" только когда реально накопилось >= 1
+  pt.textContent = pestsVal >= 1 ? Math.floor(pestsVal) : 0;
 }
 
   // бары (если setBar у тебя принимает 0..1)
   if(typeof setBar === "function"){
     setBar("waterBar",  s.water / 100);
-    setBar("healthBar", s.health / 100);
     setBar("pestsBar",  1 - (s.pests / 100));
 
     // XP бар: убедись, что xpProgress возвращает число 0..1.
@@ -4120,7 +4112,7 @@ function collectDrop(node){
   const add = 25 * waterActionMul;
   const wasDry = state.water < 20;
 state.water = clamp(state.water + add, 0, 100);
-if(wasDry) state.health = clamp(state.health + 2, 0, 100);
+
 
 markDailyTask(state, "water");
 
@@ -4130,14 +4122,19 @@ markDailyTask(state, "water");
   render(state);
 }
 
-    function doClean(){
-      state.pests = clamp(state.pests - 35, 0, 100);
-      markDailyTask(state, "clean");
-      saveState(state);
-      pulseTree();
-      log("🧹 Жуки изгнаны.");
-      render(state);
-    }
+function doClean(){
+  // чистим сильнее (чтобы было приятно)
+  state.pests = clamp(state.pests - 50, 0, 100);
+
+  // защита от жуков на 60 минут после чистки
+  state.pestsShieldUntil = nowMs() + 60 * 60 * 1000;
+
+  markDailyTask(state, "clean");
+  saveState(state);
+  pulseTree();
+  log("🧹 Жуки изгнаны. (защита на 60 минут)");
+  render(state);
+}
     
 function doMeditate(){
   const s = state;
@@ -4793,8 +4790,8 @@ function hideMedOverlay(){
 function runMeditation1Min(){
   // 5..0 countdown, then 60 seconds breathing
   const inhaleSec = 4;    // меняй: длительность вдоха
-  const exhaleSec = 6;    // меняй: длительность выдоха
-  const totalSec = 100;
+  const exhaleSec = 4;    // меняй: длительность выдоха
+  const totalSec = 60;
 
   let n = 5;
   showMedOverlay(String(n), t("med_ready"));
