@@ -5065,50 +5065,6 @@ function initMusic(){
   playIfOn();
 }
 
-function initCredits(){
-  const btn = document.getElementById("creditsBtn");
-  const overlay = document.getElementById("creditsOverlay");
-  const title = document.getElementById("creditsTitle");
-  const text = document.getElementById("creditsText");
-  const close = document.getElementById("creditsClose");
-
-  if(!btn || !overlay || !title || !text || !close) return;
-
-  function fillCredits(){
-    // если у тебя есть state.lang = "ru"/"en" (часто так и есть)
-    const lang = (state && state.lang) ? state.lang : "ru";
-
-    if(lang === "ru"){
-      title.textContent = "Авторы";
-      text.textContent =
-        "Музыка: jaspertine — “Pink Lemonade”\n" +
-        "Лицензия: Creative Commons Attribution 4.0 (CC BY 4.0)\n" +
-        "Источник: ccmixter.org/files/jaspertine/70612,";
-    }else{
-      title.textContent = "Credits";
-      text.textContent =
-        "Music: jaspertine — “Pink Lemonade”\n" +
-        "License: Creative Commons Attribution 4.0 (CC BY 4.0)\n" +
-        "Source: ccmixter.org/files/jaspertine/70612,";
-    }
-  }
-
-  function open(){
-    fillCredits();
-    overlay.classList.remove("hidden");
-  }
-  function hide(){
-    overlay.classList.add("hidden");
-  }
-
-  btn.addEventListener("click", open);
-  close.addEventListener("click", hide);
-
-  // клик по тёмному фону закрывает
-  overlay.addEventListener("click", (e) => {
-    if(e.target === overlay) hide();
-  });
-}
 
    // boot();//
   </script>
@@ -5132,9 +5088,6 @@ function initCredits(){
   // Запуск ПОСЛЕ того, как уже есть #musicBtn, #creditsBtn, #bgm, #creditsOverlay
   boot();
 
-  // На всякий случай: если boot() не вызывает initMusic(), то вызовем вручную.
-  if (typeof initMusic === "function") initMusic();
-  if (typeof initCredits === "function") initCredits();
 </script>
 
 </body>
