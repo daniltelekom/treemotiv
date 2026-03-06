@@ -1791,7 +1791,7 @@ med_done: "Done.",
 music_on: "Music: ON",
 music_off: "Music: OFF",
 creditsMusicTitle: "Music",
-creditsMusicText: "Track: «Muted Warning» — jaspertine. Licensed: CC BY 4.0. Source: https://ccmixter.org/files/jaspertine/70612",
+creditsMusicText: "Track: «Muted Warning» — jaspertine. Licensed: CC BY 4.0. Source: https://ccmixter.org/files/jaspertine/70612","Track: «Going_Gone» — jaspertine. Licensed: CC BY 4.0. Source:https://ccmixter.org/files/jaspertine/70552","Track: «No_Constant_12» — jaspertine. Licensed: CC BY 4.0. Source:https://ccmixter.org/files/jaspertine/70478"
 
   },
   ru: {
@@ -4933,33 +4933,98 @@ function renderResultOptions(treeIds){
 }
 
     // ===== MUSIC SYSTEM =====
+const MUSIC_PLAYLIST = [
+  {
+    title: "Going_Gone",
+    file: "https://ccmixter.org/files/jaspertine/70552",
+    author: "jaspertine",
+    authorPage: "https://ccmixter.org/people/jaspertine",
+    license: "CC BY 4.0"
+  },
+  {
+    title: "Muted Warning 9",
+    file: "assets/audio/jaspertine_-_Muted_Warning_9.mp3",
+    author: "jaspertine",
+    authorPage: "https://ccmixter.org/people/jaspertine",
+    license: "CC BY 4.0"
+  },
+    {
+    title: "No_Constant_12",
+    file: "https://ccmixter.org/files/jaspertine/70478",
+    author: "jaspertine",
+    authorPage: "https://ccmixter.org/people/jaspertine",
+    license: "CC BY 4.0"
+  },
+
+];
+
 function ensureSettings(){
   if(!state.settings) state.settings = {};
-  if(typeof state.settings.musicOn !== "boolean")
-    state.settings.musicOn = false;
-  if(typeof state.settings.musicVolume !== "number")
-    state.settings.musicVolume = 0.35;
+  if(typeof state.settings.musicOn !== "boolean") state.settings.musicOn = false;
+  if(typeof state.settings.musicVolume !== "number") state.settings.musicVolume = 0.35;
+  if(typeof state.settings.musicTrackIndex !== "number") state.settings.musicTrackIndex = -1;
 }
 
 function updateMusicUI(){
   const btn = document.getElementById("musicBtn");
   if(!btn) return;
-
-  if(state.settings.musicOn){
-    btn.textContent = "🎵 Музыка: ВКЛ";
-  }else{
-    btn.textContent = "🔇 Музыка: ВЫКЛ";
-  }
+  btn.textContent = state.settings.musicOn ? "🎵" : "🔇";
+  btn.title = state.settings.musicOn ? t("music_on") : t("music_off");
 }
 
-function applyMusic(){
+function updateCreditsText(){
+  const el = document.getElementById("creditsText");
+  if(!el) return;
+
+  // Если все треки одного автора: норм дать список названий + одну ссылку на автора.
+  // (Это не юридическая консультация, но для CC BY так обычно и делают “разумную” атрибуцию.)
+  const author = MUSIC_PLAYLIST[0]?.author || "Unknown";
+  const authorPage = MUSIC_PLAYLIST[0]?.authorPage || "#";
+  const license = MUSIC_PLAYLIST[0]?.license || "CC";
+
+  const titles = MUSIC_PLAYLIST.map(t => `• ${t.title}`).join("<br>");
+
+  el.innerHTML = `
+<b>Music:</b><br>
+${titles}<br><br>
+<b>Author:</b> <a href="${authorPage}" target="_blank" rel="noopener">${author}</a><br>
+<b>License:</b> ${license}
+`;
+}
+
+function pickRandomIndex(exclude){
+  if(MUSIC_PLAYLIST.length <= 1) return 0;
+  let i = Math.floor(Math.random() * MUSIC_PLAYLIST.length);
+  if(i === exclude) i = (i + 1) % MUSIC_PLAYLIST.length;
+  return i;
+}
+
+function setTrackByIndex(i){
+  const audio = document.getElementById("bgm");
+  if(!audio) return;
+
+  const tr = MUSIC_PLAYLIST[i] || MUSIC_PLAYLIST[0];
+  state.settings.musicTrackIndex = MUSIC_PLAYLIST.indexOf(tr);
+
+  audio.loop = false; // важно: мы сами переключаем треки
+  audio.src = tr.file;
+  audio.load();
+
+  saveState(state);
+  updateCreditsText();
+}
+
+function playIfOn(){
   const audio = document.getElementById("bgm");
   if(!audio) return;
 
   audio.volume = state.settings.musicVolume;
 
   if(state.settings.musicOn){
-    audio.play().catch(()=>{});
+    audio.play().catch(() => {
+      // браузеры любят запрещать autoplay, пока юзер не ткнёт
+      // у тебя уже есть unlockAudioOnFirstTap() - оно это чинит
+    });
   }else{
     audio.pause();
   }
@@ -4968,31 +5033,37 @@ function applyMusic(){
 function initMusic(){
   ensureSettings();
 
-  const btn = document.getElementById("musicBtn");
   const audio = document.getElementById("bgm");
-  if(!btn || !audio) return;
+  const btn = document.getElementById("musicBtn");
 
-  audio.volume = state.settings.musicVolume;
+  // стартовый трек: если не выбран, берём случайный
+  if(state.settings.musicTrackIndex < 0 || state.settings.musicTrackIndex >= MUSIC_PLAYLIST.length){
+    setTrackByIndex(pickRandomIndex(-1));
+  }else{
+    setTrackByIndex(state.settings.musicTrackIndex);
+  }
 
-  // 🔴 ПРИНУДИТЕЛЬНО выключаем при старте
-  audio.pause();
-  state.settings.musicOn = false;
-  saveState(state);
+  // когда трек закончился -> следующий рандомный
+  if(audio){
+    audio.addEventListener("ended", () => {
+      const next = pickRandomIndex(state.settings.musicTrackIndex);
+      setTrackByIndex(next);
+      playIfOn();
+    });
+  }
+
+  if(btn){
+    btn.addEventListener("click", () => {
+      state.settings.musicOn = !state.settings.musicOn;
+      saveState(state);
+      updateMusicUI();
+      playIfOn();
+    });
+  }
 
   updateMusicUI();
-
-  btn.onclick = () => {
-    state.settings.musicOn = !state.settings.musicOn;
-    saveState(state);
-
-    if(state.settings.musicOn){
-      audio.play().catch(()=>{});
-    }else{
-      audio.pause();
-    }
-
-    updateMusicUI();
-  };
+  updateCreditsText();
+  playIfOn();
 }
 
 function initCredits(){
@@ -5055,9 +5126,7 @@ function initCredits(){
 
 <!-- ===== BACKGROUND MUSIC ===== -->
 <audio id="bgm"
-       src="assets/audio/jaspertine_-_Muted_Warning_9.mp3"
        preload="auto"
-       loop
        playsinline></audio>
 
 <script>
